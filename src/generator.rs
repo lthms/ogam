@@ -87,32 +87,32 @@ impl<'a> Reply<'a> {
         &'b self,
         typo: &T,
         renderer: &R,
-        open: &'static Atom<'static>,
-        close: &'static Atom<'static>,
+        open: Option<&'static Atom<'static>>,
+        close: Option<&'static Atom<'static>>,
         previous: &mut &'b Atom<'a>
     ) -> O {
         match self {
             Reply::Simple(atoms) => {
-                let o1 = open.render(typo, renderer, previous);
+                let o1 = open.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
                 let o2 = renderer.reply_template(atoms.render(typo, renderer, previous));
-                let o3 = close.render(typo, renderer, previous);
+                let o3 = close.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, o3))
             }
             Reply::WithSay(atoms, insert, None) => {
-                let o1 = open.render(typo, renderer, previous);
+                let o1 = open.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
                 let o2 = renderer.reply_template(atoms.render(typo, renderer, previous));
-                let o3 = close.render(typo, renderer, previous);
+                let o3 = close.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
                 let o4 = insert.render(typo, renderer, previous);
 
                 renderer.append(o1, renderer.append(o2, renderer.append(o3, o4)))
             }
             Reply::WithSay(atoms1, insert, Some(atoms2)) => {
-                let o1 = open.render(typo, renderer, previous);
+                let o1 = open.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
                 let o2 = renderer.reply_template(atoms1.render(typo, renderer, previous));
                 let o3 = insert.render(typo, renderer, previous);
                 let o4 = renderer.reply_template(atoms2.render(typo, renderer, previous));
-                let o5 = close.render(typo, renderer, previous);
+                let o5 = close.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, renderer.append(o3, renderer.append(o4, o5))))
             }
@@ -141,7 +141,7 @@ impl<'a> Component<'a> {
                 renderer.illformed_inline_template(renderer.render_illformed(err))
             }
             Component::Thought(reply, cls) => {
-                renderer.thought_template(reply.render_reply(typo, renderer, &Atom::Void, &Atom::Void, previous), cls)
+                renderer.thought_template(reply.render_reply(typo, renderer, None, None, previous), cls)
             },
             Component::Dialogue(reply, cls) => {
                 let o = typo.open_dialog(was_dialog);
