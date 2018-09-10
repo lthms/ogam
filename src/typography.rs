@@ -76,7 +76,7 @@ impl Typography for French {
     fn output(&self, mark: &Mark) -> &'static str {
         match mark {
             Mark::Semicolon => ";",
-            Mark::Colon => ",",
+            Mark::Colon => ":",
             Mark::OpenQuote => "«",
             Mark::CloseQuote => "»",
             Mark::Question => "?",
@@ -115,13 +115,13 @@ pub struct English;
 impl Typography for English {
     fn decide(&self, mark: &Mark) -> (Space, Space) {
         match mark {
-            Mark::Semicolon => (Space::Nbsp, Space::Normal),
-            Mark::Colon => (Space::Nbsp, Space::Normal),
-            Mark::OpenQuote => (Space::Normal, Space::Nbsp),
-            Mark::CloseQuote => (Space::Nbsp, Space::Normal),
-            Mark::Question => (Space::Nbsp, Space::Normal),
-            Mark::Exclamation => (Space::Nbsp, Space::Normal),
-            Mark::LongDash => (Space::Normal, Space::Normal),
+            Mark::Semicolon => (Space::None, Space::Normal),
+            Mark::Colon => (Space::None, Space::Normal),
+            Mark::OpenQuote => (Space::Normal, Space::None),
+            Mark::CloseQuote => (Space::None, Space::Normal),
+            Mark::Question => (Space::None, Space::Normal),
+            Mark::Exclamation => (Space::None, Space::Normal),
+            Mark::LongDash => (Space::None, Space::None),
             Mark::Dash => (Space::None, Space::None),
             Mark::Hyphen => (Space::None, Space::None),
             Mark::Comma => (Space::None, Space::Normal),

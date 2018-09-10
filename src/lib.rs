@@ -70,7 +70,7 @@ macro_rules! recover_incomplete (
 );
 
 named!(white_spaces<&str, ()>,
-       recover_incomplete!(take_while!(|c| "\t   ".contains(c)))
+       recover_incomplete!(take_while!(|c| "\r\t   ".contains(c)))
 );
 
 named!(blank<&str, ()>,
@@ -129,19 +129,20 @@ named_args!(format_rec(in_strong: bool, in_emph: bool, in_quote: bool)<&str, For
     alt!( map!(some!(atom), Format::Raw)
         | cond_reduce!(!in_strong, do_parse!(
             char!('+') >>
-            blank >>
+            white_spaces >>
             st: some!(call!(format_rec, true, in_emph, in_quote)) >>
-            char!('+') >>
             blank >>
+            char!('+') >>
+            white_spaces >>
             (Format::StrongEmph(st))
           ))
         | cond_reduce!(!in_emph, do_parse!(
             char!('*') >>
-            blank >>
+            white_spaces >>
             st: some!(call!(format_rec, in_strong, true, in_quote)) >>
             blank >>
             char!('*') >>
-            blank >>
+            white_spaces >>
             (Format::Emph(st))
           ))
         | cond_reduce!(!in_quote, do_parse!(
@@ -151,7 +152,7 @@ named_args!(format_rec(in_strong: bool, in_emph: bool, in_quote: bool)<&str, For
             white_spaces >>
             alt!(char!('"') | char!('»')) >>
             white_spaces >>
-            (Format::Emph(st))
+            (Format::Quote(st))
           ))
     )
 );
@@ -341,11 +342,19 @@ fn test_reply() {
     );
 }
 
+// Because I have spent a fair amonut of time in a train trying to figure out
+// the best way to implement this parser, I consider it is probably a good idea
+// to explain why there is a call to `blank` for Dialogue and Thought, but not
+// teller. The reason is actually quite simple: the `atom` parser is already
+// eating the whitespaces before him, so if we do add blank to Teller as well,
+// then this means two newlines are consumed when a Teller component follows a
+// Dialogue for instance.
 named!(component<&str, Component>, alt_complete! (
             do_parse!(
               tel: some!(format) >>
               (Component::Teller(tel)))
          |  do_parse!(
+              blank >>
               dial: call!(reply, '[' , ']') >>
               by: opt!(do_parse!(
                      char!('(') >>
@@ -355,6 +364,7 @@ named!(component<&str, Component>, alt_complete! (
                      (name))) >>
               (Component::Dialogue(dial, by)))
          |  do_parse!(
+              blank >>
               th: call!(reply, '<' , '>') >>
               by: opt!(do_parse!(
                      char!('(') >>
@@ -522,8 +532,8 @@ Recover!"#),
 }
 
 named!(
-    section<&str, Section>,
-    alt!(
+    section<&str, Section>, do_parse!(
+    res: alt!(
         do_parse!(
             some!(char!('_')) >>
             cls: opt!(
@@ -536,16 +546,73 @@ named!(
             some!(empty_line) >>
             sec: some!(paragraph) >>
             some!(char!('_')) >>
-            many0!(complete!(empty_line)) >>
             (Section::Aside(cls, sec))
         )
       | map!(some!(paragraph), Section::Story)
       | map!(search_recovery_point, Section::IllFormed)
-    )
-);
+    ) >>
+    many0!(complete!(empty_line)) >>
+    (res)
+));
 
 #[test]
 fn test_section() {
+    assert_eq!(
+        section("+\nHi  \n +"),
+        Ok((
+            "",
+            Section::Story(
+                vec![
+                    Paragraph(
+                        vec![
+                            Component::Teller(
+                                vec![
+                                    Format::StrongEmph(
+                                        vec![
+                                            Format::Raw(
+                                                vec![
+                                                    Atom::Word("Hi")
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ))
+    );
+
+    assert_eq!(
+        section("+Hi+"),
+        Ok((
+            "",
+            Section::Story(
+                vec![
+                    Paragraph(
+                        vec![
+                            Component::Teller(
+                                vec![
+                                    Format::StrongEmph(
+                                        vec![
+                                            Format::Raw(
+                                                vec![
+                                                    Atom::Word("Hi")
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ))
+    );
+
     assert_eq!(
         section(r#"_____letter____
 Dear friend.
@@ -640,8 +707,12 @@ I love you."#),
 }
 
 named!(
-    document<&str, Document>,
-    map!(some!(section), |x| Document(x))
+    document<&str, Document>, do_parse!(
+      blank >>
+      many0!(complete!(empty_line)) >>
+      x: some!(section) >>
+      (Document(x))
+    )
 );
 
 #[test]
@@ -757,7 +828,9 @@ fn test_render() {
     use generator::test::Html;
 
     assert_eq!(
-        render_galatian_document(r#"It looks like it is working.
+        render_galatian_document(r#"
+
+    It looks like it is working.
 
 +I+
  smiled *at
@@ -774,5 +847,5 @@ But why?
 ____________________
 
 "#, &ENGLISH, &Html).unwrap(),
-    "<div class=\"story\"><p>It looks like it is working.</p><p><strong>I</strong> smiled<em> at</em> him.<span div=\"thought by-me\"><span div=\"reply\">Oh no.</span></span></p><p>but I was like…<em> Why not&nbsp;?</em></p><p>And this is great.</p></div><div class=\"aside letter\"><p>But why&nbsp;?</p></div>");
+    "<div class=\"story\"><p>It looks like it is working.</p><p><strong>I</strong> smiled<em> at</em> him.<span div=\"thought by-me\"><span div=\"reply\">Oh no.</span></span></p><p>but I was like… “Why not?”</p><p>And this is great.</p></div><div class=\"aside letter\"><p>But why?</p></div>");
 }

@@ -251,6 +251,8 @@ impl<'a> Renderable<'a> for Document<'a> {
 pub mod test {
     use super::*;
 
+    use ::typography::FRENCH;
+
     pub struct Html;
 
     impl Renderer<String> for Html {
@@ -334,8 +336,6 @@ pub mod test {
             format!("<div class=\"aside {}\">{}</div>", cls.unwrap_or(""), aside)
         }
     }
-
-    use ::typography::FRENCH;
 
     #[test]
     fn test_generation() {
