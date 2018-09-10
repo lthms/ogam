@@ -1,0 +1,7 @@
+[package]
+name = "galatian"
+version = "0.1.0"
+authors = ["Thomas Letan <contact@thomasletan.fr>"]
+
+[dependencies]
+nom = "4.0"
