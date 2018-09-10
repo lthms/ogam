@@ -15,8 +15,8 @@ pub trait Renderer<O> {
 
     fn reply_template(&self, reply: O) -> O;
 
-    fn thought_template(&self, reply: O) -> O;
-    fn dialogue_template(&self, reply: O) -> O;
+    fn thought_template(&self, reply: O, author: &Option<&str>) -> O;
+    fn dialogue_template(&self, reply: O, author: &Option<&str>) -> O;
     fn between_dialogue(&self) -> O;
     fn illformed_inline_template(&self, err: O) -> O;
 
@@ -140,10 +140,10 @@ impl<'a> Component<'a> {
             Component::IllFormed(err) => {
                 renderer.illformed_inline_template(renderer.render_illformed(err))
             }
-            Component::Thought(reply, _) => {
-                renderer.thought_template(reply.render_reply(typo, renderer, &Atom::Void, &Atom::Void, previous))
+            Component::Thought(reply, cls) => {
+                renderer.thought_template(reply.render_reply(typo, renderer, &Atom::Void, &Atom::Void, previous), cls)
             },
-            Component::Dialogue(reply, _) => {
+            Component::Dialogue(reply, cls) => {
                 let o = typo.open_dialog(was_dialog);
                 let e = typo.close_dialog(will_be_dialog);
 
@@ -153,7 +153,7 @@ impl<'a> Component<'a> {
                     renderer.empty()
                 };
 
-                let res = renderer.dialogue_template(reply.render_reply(typo, renderer, o, e, previous));
+                let res = renderer.dialogue_template(reply.render_reply(typo, renderer, o, e, previous), cls);
 
                 renderer.append(sep, res)
             },
@@ -294,12 +294,20 @@ pub mod test {
             format!("<span div=\"reply\">{}</span>", reply)
         }
 
-        fn thought_template(&self, reply: String) -> String {
-            format!("<span div=\"thought\">{}</span>", reply)
+        fn thought_template(&self, reply: String, author: &Option<&str>) -> String {
+            format!(
+                "<span div=\"thought{}\">{}</span>",
+                author.map(|x| format!(" by-{}", x)).unwrap_or(String::from("")),
+                reply,
+            )
         }
 
-        fn dialogue_template(&self, reply: String) -> String {
-            format!("<span div=\"dialogue\">{}</span>", reply)
+        fn dialogue_template(&self, reply: String, author: &Option<&str>) -> String {
+            format!(
+                "<span div=\"dialogue{}\">{}</span>",
+                author.map(|x| format!(" by-{}", x)).unwrap_or(String::from("")),
+                reply,
+            )
         }
 
         fn between_dialogue(&self) -> String {

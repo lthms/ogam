@@ -774,5 +774,5 @@ But why?
 ____________________
 
 "#, &ENGLISH, &Html).unwrap(),
-    "<div class=\"story\"><p>It looks like it is working.</p><p><strong>I</strong> smiled<em> at</em> him.<span div=\"thought\"><span div=\"reply\">Oh no.</span></span></p><p>but I was like…<em> Why not&nbsp;?</em></p><p>And this is great.</p></div><div class=\"aside letter\"><p>But why&nbsp;?</p></div>");
+    "<div class=\"story\"><p>It looks like it is working.</p><p><strong>I</strong> smiled<em> at</em> him.<span div=\"thought by-me\"><span div=\"reply\">Oh no.</span></span></p><p>but I was like…<em> Why not&nbsp;?</em></p><p>And this is great.</p></div><div class=\"aside letter\"><p>But why&nbsp;?</p></div>");
 }
