@@ -128,6 +128,7 @@ fn test_atom() {
 named_args!(format_rec(in_strong: bool, in_emph: bool, in_quote: bool)<&str, Format>,
     alt!( map!(some!(atom), Format::Raw)
         | cond_reduce!(!in_strong, do_parse!(
+            opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
             char!('+') >>
             white_spaces >>
             st: some!(call!(format_rec, true, in_emph, in_quote)) >>
@@ -137,6 +138,7 @@ named_args!(format_rec(in_strong: bool, in_emph: bool, in_quote: bool)<&str, For
             (Format::StrongEmph(st))
           ))
         | cond_reduce!(!in_emph, do_parse!(
+            opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
             char!('*') >>
             white_spaces >>
             st: some!(call!(format_rec, in_strong, true, in_quote)) >>
@@ -146,6 +148,7 @@ named_args!(format_rec(in_strong: bool, in_emph: bool, in_quote: bool)<&str, For
             (Format::Emph(st))
           ))
         | cond_reduce!(!in_quote, do_parse!(
+            opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
             alt!(char!('"') | char!('«')) >>
             white_spaces >>
             st: some!(call!(format_rec, in_strong, in_emph, true)) >>
@@ -379,6 +382,42 @@ named!(component<&str, Component>, alt_complete! (
 
 #[test]
 fn test_component() {
+    assert_eq!(
+        component("Hi stranger,\n*this* is me."),
+        Ok(
+            (
+                "",
+                Component::Teller(
+                    vec![
+                        Format::Raw(
+                            vec![
+                                Atom::Word("Hi"),
+                                Atom::Word("stranger"),
+                                Atom::Punctuation(Mark::Comma),
+                            ]
+                        ),
+                        Format::Emph(
+                            vec![
+                                Format::Raw(
+                                    vec![
+                                        Atom::Word("this"),
+                                    ]
+                                )
+                            ]
+                        ),
+                        Format::Raw(
+                            vec![
+                                Atom::Word("is"),
+                                Atom::Word("me"),
+                                Atom::Punctuation(Mark::Point)
+                            ]
+                        )
+                    ]
+                )
+            )
+        )
+    );
+
     assert_eq!(
         component("Hi stranger, this is me."),
         Ok(
