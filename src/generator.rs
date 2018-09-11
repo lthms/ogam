@@ -148,6 +148,7 @@ impl<'a> Component<'a> {
                 let e = typo.close_dialog(will_be_dialog);
 
                 let sep = if was_dialog {
+                    *previous = &Atom::Void;
                     renderer.between_dialogue()
                 } else {
                     renderer.empty()
