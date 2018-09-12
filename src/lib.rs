@@ -6,7 +6,7 @@ pub mod generator;
 
 use ast::*;
 use typography::Typography;
-use generator::{Renderer, Renderable};
+use generator::{Renderer, render_document};
 
 const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t  ";
 
@@ -879,7 +879,7 @@ pub fn parse_galatian_document<'a>(input: &'a str) -> Result<Document<'a>, Error
 }
 
 pub fn render_galatian_document<'a, O, T: Typography, R: Renderer<O>>(input: &'a str, typo: &T, renderer: &R) -> Result<O, Error<'a>> {
-    Ok(parse_galatian_document(input)?.render_one_shot(typo, renderer))
+    Ok(render_document(&parse_galatian_document(input)?, typo, renderer))
 }
 
 #[test]

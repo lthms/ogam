@@ -41,40 +41,109 @@ pub trait Renderer<O> {
     }
 }
 
-pub trait Renderable<'a> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O;
+struct Memory<'a> {
+    atom: &'a Atom<'a>,
+    was_dialogue: bool,
+}
 
-    fn render_one_shot<O, T: Typography, R: Renderer<O>>(&self, typo: &T, renderer: &R) -> O {
-        let start_with = Atom::Void;
-        self.render(typo, renderer, &mut &start_with)
+impl<'a> Memory<'a> {
+    fn init() -> Self {
+        Memory {
+            atom: &Atom::Void,
+            was_dialogue: false,
+        }
+    }
+
+    fn remember_atom(&mut self, past: &'a Atom<'a>) {
+        self.atom = past;
+    }
+
+    fn reset_atom(&mut self) {
+        self.atom = &Atom::Void;
+    }
+
+    fn remember_dialogue(&mut self, dial: bool) {
+        self.was_dialogue = dial;
+    }
+
+    fn reset(&mut self) {
+        self.reset_atom();
+        self.was_dialogue = false;
+    }
+}
+
+trait Renderable<'a> {
+    fn render<'b: 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O;
+
+    fn render_one_shot<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R
+    ) -> O {
+        let mut start_with = Memory::init();
+        self.render(typo, renderer, &mut start_with)
+    }
+}
+
+impl<'a, A: Renderable<'a>> Renderable<'a> for Vec<A> {
+    fn render<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O {
+        let mut res_str = renderer.empty();
+
+        for el in self {
+            let seg = el.render(typo, renderer, mem);
+            res_str = renderer.append(res_str, seg);
+        }
+
+        res_str
     }
 }
 
 impl<'a> Renderable<'a> for Atom<'a> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O {
-        let space = choose(typo.after_atom(previous), typo.before_atom(self));
-        *previous = self;
+    fn render<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O {
+        let space = choose(typo.after_atom(mem.atom), typo.before_atom(self));
+
+        mem.remember_atom(self);
 
         renderer.append(renderer.render_space(space), renderer.render_atom(self, typo))
     }
 }
 
 impl<'a> Renderable<'a> for Format<'a> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O {
+    fn render<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O {
         match self {
             Format::Raw(atoms) => {
-                atoms.render(typo, renderer, previous)
+                atoms.render(typo, renderer, mem)
             },
             Format::Emph(atoms) => {
-                renderer.emph_template(atoms.render(typo, renderer, previous))
+                renderer.emph_template(atoms.render(typo, renderer, mem))
             },
             Format::StrongEmph(atoms) => {
-                renderer.strong_emph_template(atoms.render(typo, renderer, previous))
+                renderer.strong_emph_template(atoms.render(typo, renderer, mem))
             },
             Format::Quote(atoms) => {
-                let before = Atom::Punctuation(Mark::OpenQuote).render(typo, renderer, previous);
-                let content = atoms.render(typo, renderer, previous);
-                let after = Atom::Punctuation(Mark::CloseQuote).render(typo, renderer, previous);
+                let before = Atom::Punctuation(Mark::OpenQuote).render(typo, renderer, mem);
+                let content = atoms.render(typo, renderer, mem);
+                let after = Atom::Punctuation(Mark::CloseQuote).render(typo, renderer, mem);
 
                 renderer.append(renderer.append(before, content), after)
             }
@@ -83,36 +152,36 @@ impl<'a> Renderable<'a> for Format<'a> {
 }
 
 impl<'a> Reply<'a> {
-    fn render_reply<'b, O, T: Typography, R: Renderer<O>>(
+    fn render_reply<'b : 'a, O, T: Typography, R: Renderer<O>>(
         &'b self,
         typo: &T,
         renderer: &R,
         open: Option<&'static Atom<'static>>,
         close: Option<&'static Atom<'static>>,
-        previous: &mut &'b Atom<'a>
+        mem: &mut Memory<'a>
     ) -> O {
         match self {
             Reply::Simple(atoms) => {
-                let o1 = open.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
-                let o2 = renderer.reply_template(atoms.render(typo, renderer, previous));
-                let o3 = close.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
+                let o1 = open.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
+                let o2 = renderer.reply_template(atoms.render(typo, renderer, mem));
+                let o3 = close.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, o3))
             }
             Reply::WithSay(atoms, insert, None) => {
-                let o1 = open.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
-                let o2 = renderer.reply_template(atoms.render(typo, renderer, previous));
-                let o3 = close.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
-                let o4 = insert.render(typo, renderer, previous);
+                let o1 = open.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
+                let o2 = renderer.reply_template(atoms.render(typo, renderer, mem));
+                let o3 = close.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
+                let o4 = insert.render(typo, renderer, mem);
 
                 renderer.append(o1, renderer.append(o2, renderer.append(o3, o4)))
             }
             Reply::WithSay(atoms1, insert, Some(atoms2)) => {
-                let o1 = open.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
-                let o2 = renderer.reply_template(atoms1.render(typo, renderer, previous));
-                let o3 = insert.render(typo, renderer, previous);
-                let o4 = renderer.reply_template(atoms2.render(typo, renderer, previous));
-                let o5 = close.map(|x| x.render(typo, renderer, previous)).unwrap_or(renderer.empty());
+                let o1 = open.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
+                let o2 = renderer.reply_template(atoms1.render(typo, renderer, mem));
+                let o3 = insert.render(typo, renderer, mem);
+                let o4 = renderer.reply_template(atoms2.render(typo, renderer, mem));
+                let o5 = close.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, renderer.append(o3, renderer.append(o4, o5))))
             }
@@ -132,60 +201,58 @@ impl<'a> Component<'a> {
         }
     }
 
-    fn render_component<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, was_dialog: bool, will_be_dialog: bool, previous: &mut &'b Atom<'a>) -> O {
-        match self {
+    fn render_component<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self, typo: &T,
+        renderer: &R,
+        will_be_dialog: bool,
+        mem: &mut Memory<'a>
+    ) -> O {
+        let res = match self {
             Component::Teller(atoms) => {
-                atoms.render(typo, renderer, previous)
+                atoms.render(typo, renderer, mem)
             }
             Component::IllFormed(err) => {
                 renderer.illformed_inline_template(renderer.render_illformed(err))
             }
             Component::Thought(reply, cls) => {
-                renderer.thought_template(reply.render_reply(typo, renderer, None, None, previous), cls)
+                renderer.thought_template(
+                    reply.render_reply(typo, renderer, None, None, mem),
+                    cls
+                )
             },
             Component::Dialogue(reply, cls) => {
-                let o = typo.open_dialog(was_dialog);
+                let o = typo.open_dialog(mem.was_dialogue);
                 let e = typo.close_dialog(will_be_dialog);
 
-                let sep = if was_dialog {
-                    *previous = &Atom::Void;
+                let res = renderer.dialogue_template(
+                    reply.render_reply(typo, renderer, o, e, mem),
+                    cls
+                );
+
+                let sep = if will_be_dialog {
+                    mem.reset_atom();
                     renderer.between_dialogue()
                 } else {
                     renderer.empty()
                 };
 
-                let res = renderer.dialogue_template(reply.render_reply(typo, renderer, o, e, previous), cls);
-
-                renderer.append(sep, res)
+                renderer.append(res, sep)
             },
-        }
-    }
-}
+        };
 
-impl<'a, A: Renderable<'a>> Renderable<'a> for Vec<A> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O {
-        let mut cursor = self.iter();
-        let mut res_str = renderer.empty();
+        mem.remember_dialogue(self.is_dialog());
 
-        loop {
-            match cursor.next() {
-                Some(el) => {
-                    let seg = el.render(typo, renderer, previous);
-                    res_str = renderer.append(res_str, seg);
-                }
-                None => {
-                    break
-                }
-            }
-        }
-
-        res_str
+        res
     }
 }
 
 impl<'a> Renderable<'a> for Paragraph<'a> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O {
-        let mut was_dialogue = false;
+    fn render<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O {
         let mut will_be_dialogue;
         let mut res = renderer.empty();
 
@@ -199,10 +266,13 @@ impl<'a> Renderable<'a> for Paragraph<'a> {
 
                         res = renderer.append(
                             res,
-                            current.render_component(typo, renderer, was_dialogue, will_be_dialogue, previous)
+                            current.render_component(
+                                typo,
+                                renderer,
+                                will_be_dialogue,
+                                mem
+                            )
                         );
-
-                        was_dialogue = current.is_dialog();
                     } else {
                         break
                     }
@@ -210,22 +280,27 @@ impl<'a> Renderable<'a> for Paragraph<'a> {
             }
         }
 
-        *previous = &Atom::Void;
+        mem.reset_atom();
 
         renderer.paragraph_template(res)
     }
 }
 
 impl<'a> Renderable<'a> for Section<'a> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O {
-        *previous = &Atom::Void;
+    fn render<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O {
+        mem.reset();
 
         match self {
             Section::Story(atoms) => {
-                renderer.story_template(atoms.render(typo, renderer, previous))
+                renderer.story_template(atoms.render(typo, renderer, mem))
             },
             Section::Aside(cls, atoms) => {
-                renderer.aside_template(cls, atoms.render(typo, renderer, previous))
+                renderer.aside_template(cls, atoms.render(typo, renderer, mem))
             },
             Section::IllFormed(vec) => {
                 renderer.illformed_block_template(
@@ -239,13 +314,27 @@ impl<'a> Renderable<'a> for Section<'a> {
 }
 
 impl<'a> Renderable<'a> for Document<'a> {
-    fn render<'b, O, T: Typography, R: Renderer<O>>(&'b self, typo: &T, renderer: &R, previous: &mut &'b Atom<'a>) -> O {
+    fn render<'b : 'a, O, T: Typography, R: Renderer<O>>(
+        &'b self,
+        typo: &T,
+        renderer: &R,
+        mem: &mut Memory<'a>
+    ) -> O {
         match self {
             Document(atoms) => {
-                atoms.render(typo, renderer, previous)
+                atoms.render(typo, renderer, mem)
             }
         }
     }
+}
+
+pub fn render_document<'a, 'b : 'a, O, T: Typography, R: Renderer<O>>(
+    doc: &Document<'a>,
+    typo: &T,
+    renderer: &R
+) -> O {
+    let mut start_with = Memory::init();
+    doc.render(typo, renderer, &mut start_with)
 }
 
 #[cfg(test)]
