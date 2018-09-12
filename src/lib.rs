@@ -6,6 +6,7 @@
 pub mod ast;
 pub mod typography;
 pub mod generator;
+pub mod stats;
 #[cfg(feature="html")] pub mod html;
 
 use ast::*;
@@ -889,27 +890,55 @@ pub fn render_galatian_document<'a, O, T: Typography, R: Renderer<'a, O>>(input:
 #[test]
 fn test_render() {
     use typography::ENGLISH;
-    use generator::test::Html;
+    use stats::Stats;
 
     assert_eq!(
-        render_galatian_document(r#"
+        render_galatian_document(
+            r#"Hi everyone."#,
+            &ENGLISH,
+            &Stats
+        ).unwrap().words_count,
+        2
+    );
 
-    It looks like it is working.
+    assert_eq!(
+        render_galatian_document(
+            r#"Hi everyone. +My name is.. Suly+."#,
+            &ENGLISH,
+            &Stats
+        ).unwrap().signs_count,
+        3
+    );
 
-+I+
- smiled *at
-*
-him. <Oh no.>(me)
+    assert_eq!(
+        render_galatian_document(
+            r#"Hi everyone.
 
-but I was like... "Why not?"
+ +My name is.. Suly+.
 
-And this is great.
+____test____
 
-______letter________
+What is your name?
+____________"#,
+            &ENGLISH,
+            &Stats
+        ).unwrap().spaces_count,
+        7
+    );
 
-But why?
-____________________
+    assert_eq!(
+        render_galatian_document(
+            r#"Hi everyone.
 
-"#, &ENGLISH, &Html).unwrap(),
-    "<div class=\"story\"><p>It looks like it is working.</p><p><strong>I</strong> smiled<em> at</em> him.<span div=\"thought by-me\"><span div=\"reply\"> Oh no.</span></span></p><p>but I was like… “Why not?”</p><p>And this is great.</p></div><div class=\"aside letter\"><p>But why?</p></div>");
+[+My name is.. Suly+.](john)
+
+____test____
+
+What is your name?
+____________"#,
+            &ENGLISH,
+            &Stats
+        ).unwrap().characters,
+        ["john"].iter().cloned().collect()
+    );
 }
