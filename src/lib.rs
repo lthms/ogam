@@ -11,7 +11,8 @@ pub mod stats;
 
 use ast::*;
 use typography::Typography;
-use generator::{Renderer, render_document};
+use generator::Renderer;
+pub use generator::render;
 
 const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t  ";
 
@@ -568,7 +569,7 @@ named_args!(
     )
 );
 
-fn search_recovery_point<'a>(input: &'a str) -> nom::IResult<&'a str, Vec<&'a str>> {
+fn search_recovery_point<'input>(input: &'input str) -> nom::IResult<&'input str, Vec<&'input str>> {
     let mut acc = vec![];
     match search_recovery_point_rec(input, &mut acc) {
         Ok((input, _)) => {
@@ -864,12 +865,14 @@ _______________"#),
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Error<'a> {
-    IncompleteParsing(Document<'a>, &'a str),
+pub enum Error<'input> {
+    IncompleteParsing(Document<'input>, &'input str),
     ParsingError,
 }
 
-pub fn parse_galatian_document<'a>(input: &'a str) -> Result<Document<'a>, Error<'a>> {
+pub fn parse<'input>(
+    input: &'input str
+) -> Result<Document<'input>, Error<'input>> {
     match document(input) {
         Ok(("", res)) => {
             Ok(res)
@@ -883,8 +886,12 @@ pub fn parse_galatian_document<'a>(input: &'a str) -> Result<Document<'a>, Error
     }
 }
 
-pub fn render_galatian_document<'a, O, T: Typography, R: Renderer<'a, O>>(input: &'a str, typo: &T, renderer: &R) -> Result<O, Error<'a>> {
-    Ok(render_document(&parse_galatian_document(input)?, typo, renderer))
+pub fn compile<'input, O, T: Typography, R: Renderer<'input, O>>(
+    input: &'input str,
+    typo: &T,
+    renderer: &R
+) -> Result<O, Error<'input>> {
+    Ok(render(&parse(input)?, typo, renderer))
 }
 
 #[test]
@@ -893,7 +900,7 @@ fn test_render() {
     use stats::Stats;
 
     assert_eq!(
-        render_galatian_document(
+        compile(
             r#"Hi everyone."#,
             &ENGLISH,
             &Stats
@@ -902,7 +909,7 @@ fn test_render() {
     );
 
     assert_eq!(
-        render_galatian_document(
+        compile(
             r#"Hi everyone. +My name is.. Suly+."#,
             &ENGLISH,
             &Stats
@@ -911,7 +918,7 @@ fn test_render() {
     );
 
     assert_eq!(
-        render_galatian_document(
+        compile(
             r#"Hi everyone.
 
  +My name is.. Suly+.
@@ -927,7 +934,7 @@ ____________"#,
     );
 
     assert_eq!(
-        render_galatian_document(
+        compile(
             r#"Hi everyone.
 
 [+My name is.. Suly+.](john)

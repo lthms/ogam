@@ -1,22 +1,22 @@
 use ::ast::*;
 use ::typography::{Space, choose, Typography};
 
-pub trait Renderer<'a, O> {
+pub trait Renderer<'input, O> {
     fn append(&self, O, O) -> O;
     fn empty(&self) -> O;
 
     fn render_space(&self, space: Space) -> O;
-    fn render_word(&self, word: &'a str) -> O;
-    fn render_mark(&self, mark: &'a str) -> O;
-    fn render_illformed(&self, err: &'a str) -> O;
+    fn render_word(&self, word: &'input str) -> O;
+    fn render_mark(&self, mark: &'input str) -> O;
+    fn render_illformed(&self, err: &'input str) -> O;
 
     fn emph_template(&self, format: O) -> O;
     fn strong_emph_template(&self, format: O) -> O;
 
     fn reply_template(&self, reply: O) -> O;
 
-    fn thought_template(&self, reply: O, author: &Option<&'a str>) -> O;
-    fn dialogue_template(&self, reply: O, author: &Option<&'a str>) -> O;
+    fn thought_template(&self, reply: O, author: &Option<&'input str>) -> O;
+    fn dialogue_template(&self, reply: O, author: &Option<&'input str>) -> O;
     fn between_dialogue(&self) -> O;
     fn illformed_inline_template(&self, err: O) -> O;
 
@@ -24,9 +24,9 @@ pub trait Renderer<'a, O> {
 
     fn illformed_block_template(&self, err: O) -> O;
     fn story_template(&self, err: O) -> O;
-    fn aside_template(&self, cls: &Option<&'a str>, err: O) -> O;
+    fn aside_template(&self, cls: &Option<&'input str>, err: O) -> O;
 
-    fn render_atom<T: Typography>(&self, atom: &Atom<'a>, typo: &T) -> O {
+    fn render_atom<T: Typography>(&self, atom: &Atom<'input>, typo: &T) -> O {
         match atom {
             Atom::Punctuation(ref p) => {
                 self.render_mark(typo.output(p))
@@ -41,12 +41,12 @@ pub trait Renderer<'a, O> {
     }
 }
 
-struct Memory<'b, 'a: 'b> {
-    atom: &'b Atom<'a>,
+struct Memory<'ast, 'input: 'ast> {
+    atom: &'ast Atom<'input>,
     was_dialogue: bool,
 }
 
-impl<'b, 'a: 'b> Memory<'b, 'a> {
+impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
     fn init() -> Self {
         Memory {
             atom: &Atom::Void,
@@ -54,7 +54,7 @@ impl<'b, 'a: 'b> Memory<'b, 'a> {
         }
     }
 
-    fn remember_atom(&mut self, past: &'b Atom<'a>) {
+    fn remember_atom(&mut self, past: &'ast Atom<'input>) {
         self.atom = past;
     }
 
@@ -72,16 +72,16 @@ impl<'b, 'a: 'b> Memory<'b, 'a> {
     }
 }
 
-trait Renderable<'b, 'a: 'b> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+trait Renderable<'ast, 'input: 'ast> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O;
 
-    fn render_one_shot<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+    fn render_one_shot<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R
     ) -> O {
@@ -90,12 +90,12 @@ trait Renderable<'b, 'a: 'b> {
     }
 }
 
-impl<'b, 'a: 'b, A: Renderable<'b, 'a>> Renderable<'b, 'a> for Vec<A> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast, A: Renderable<'ast, 'input>> Renderable<'ast, 'input> for Vec<A> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         let mut res_str = renderer.empty();
 
@@ -108,12 +108,12 @@ impl<'b, 'a: 'b, A: Renderable<'b, 'a>> Renderable<'b, 'a> for Vec<A> {
     }
 }
 
-impl<'b, 'a: 'b> Renderable<'b, 'a> for Atom<'a> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Atom<'input> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         let space = choose(typo.after_atom(mem.atom), typo.before_atom(self));
 
@@ -123,12 +123,12 @@ impl<'b, 'a: 'b> Renderable<'b, 'a> for Atom<'a> {
     }
 }
 
-impl<'b, 'a: 'b> Renderable<'b, 'a> for Format<'a> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Format<'input> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         match self {
             Format::Raw(atoms) => {
@@ -151,14 +151,14 @@ impl<'b, 'a: 'b> Renderable<'b, 'a> for Format<'a> {
     }
 }
 
-impl<'b, 'a: 'b> Reply<'a> {
-    fn render_reply<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast> Reply<'input> {
+    fn render_reply<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
         open: Option<&'static Atom<'static>>,
         close: Option<&'static Atom<'static>>,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         match self {
             Reply::Simple(atoms) => {
@@ -189,7 +189,7 @@ impl<'b, 'a: 'b> Reply<'a> {
     }
 }
 
-impl<'b, 'a: 'b> Component<'a> {
+impl<'ast, 'input: 'ast> Component<'input> {
     fn is_dialog(&self) -> bool {
         match self {
             Component::Dialogue(_, _) => {
@@ -201,12 +201,12 @@ impl<'b, 'a: 'b> Component<'a> {
         }
     }
 
-    fn render_component<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+    fn render_component<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
         will_be_dialog: bool,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         let res = match self {
             Component::Teller(atoms) => {
@@ -247,12 +247,12 @@ impl<'b, 'a: 'b> Component<'a> {
     }
 }
 
-impl<'b, 'a: 'b> Renderable<'b, 'a> for Paragraph<'a> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         let mut will_be_dialogue;
         let mut res = renderer.empty();
@@ -264,7 +264,7 @@ impl<'b, 'a: 'b> Renderable<'b, 'a> for Paragraph<'a> {
                         false
                     };
 
-                    let comp: &'b Component<'a> = &self.0[i];
+                    let comp: &'ast Component<'input> = &self.0[i];
                     res = renderer.append(
                         res,
                         comp.render_component(
@@ -282,12 +282,12 @@ impl<'b, 'a: 'b> Renderable<'b, 'a> for Paragraph<'a> {
     }
 }
 
-impl<'b, 'a: 'b> Renderable<'b, 'a> for Section<'a> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Section<'input> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         mem.reset();
 
@@ -309,12 +309,12 @@ impl<'b, 'a: 'b> Renderable<'b, 'a> for Section<'a> {
     }
 }
 
-impl<'b, 'a: 'b> Renderable<'b, 'a> for Document<'a> {
-    fn render<O, T: Typography, R: Renderer<'a, O>>(
-        &'b self,
+impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Document<'input> {
+    fn render<O, T: Typography, R: Renderer<'input, O>>(
+        &'ast self,
         typo: &T,
         renderer: &R,
-        mem: &mut Memory<'b, 'a>
+        mem: &mut Memory<'ast, 'input>
     ) -> O {
         match self {
             Document(atoms) => {
@@ -324,8 +324,8 @@ impl<'b, 'a: 'b> Renderable<'b, 'a> for Document<'a> {
     }
 }
 
-pub fn render_document<'b, 'a: 'b, O, T: Typography, R: Renderer<'a, O>>(
-    doc: &'b Document<'a>,
+pub fn render<'ast, 'input: 'ast, O, T: Typography, R: Renderer<'input, O>>(
+    doc: &'ast Document<'input>,
     typo: &T,
     renderer: &R
 ) -> O {
@@ -341,7 +341,7 @@ pub mod test {
 
     pub struct Html;
 
-    impl<'a> Renderer<'a, String> for Html {
+    impl<'input> Renderer<'input, String> for Html {
         fn append(&self, before: String, after: String) -> String {
             let mut before = before;
             before.push_str(after.as_ref());
@@ -361,15 +361,15 @@ pub mod test {
             }
         }
 
-        fn render_word(&self, word: &'a str) -> String {
+        fn render_word(&self, word: &'input str) -> String {
             String::from(word)
         }
 
-        fn render_mark(&self, mark: &'a str) -> String {
+        fn render_mark(&self, mark: &'input str) -> String {
             String::from(mark)
         }
 
-        fn render_illformed(&self, err: &'a str) -> String {
+        fn render_illformed(&self, err: &'input str) -> String {
             String::from(err)
         }
 
@@ -385,7 +385,7 @@ pub mod test {
             format!("<span div=\"reply\">{}</span>", reply)
         }
 
-        fn thought_template(&self, reply: String, author: &Option<&'a str>) -> String {
+        fn thought_template(&self, reply: String, author: &Option<&'input str>) -> String {
             format!(
                 "<span div=\"thought{}\">{}</span>",
                 author.map(|x| format!(" by-{}", x)).unwrap_or(String::from("")),
@@ -393,7 +393,7 @@ pub mod test {
             )
         }
 
-        fn dialogue_template(&self, reply: String, author: &Option<&'a str>) -> String {
+        fn dialogue_template(&self, reply: String, author: &Option<&'input str>) -> String {
             format!(
                 "<span div=\"dialogue{}\">{}</span>",
                 author.map(|x| format!(" by-{}", x)).unwrap_or(String::from("")),
@@ -421,7 +421,7 @@ pub mod test {
             format!("<div class=\"story\">{}</div>", story)
         }
 
-        fn aside_template(&self, cls: &Option<&'a str>, aside: String) -> String {
+        fn aside_template(&self, cls: &Option<&'input str>, aside: String) -> String {
             format!("<div class=\"aside {}\">{}</div>", cls.unwrap_or(""), aside)
         }
     }

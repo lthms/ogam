@@ -16,43 +16,43 @@ pub enum Mark {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Atom<'a> {
-    Word(&'a str),
+pub enum Atom<'input> {
+    Word(&'input str),
     Punctuation(Mark),
     Void,
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Format<'a> {
-    Raw(Vec<Atom<'a>>),
-    Emph(Vec<Format<'a>>),
-    StrongEmph(Vec<Format<'a>>),
-    Quote(Vec<Format<'a>>)
+pub enum Format<'input> {
+    Raw(Vec<Atom<'input>>),
+    Emph(Vec<Format<'input>>),
+    StrongEmph(Vec<Format<'input>>),
+    Quote(Vec<Format<'input>>)
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Reply<'a> {
-    Simple(Vec<Format<'a>>),
-    WithSay(Vec<Format<'a>>, Vec<Format<'a>>, Option<Vec<Format<'a>>>)
+pub enum Reply<'input> {
+    Simple(Vec<Format<'input>>),
+    WithSay(Vec<Format<'input>>, Vec<Format<'input>>, Option<Vec<Format<'input>>>)
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Component<'a> {
-    Teller(Vec<Format<'a>>),
-    Dialogue(Reply<'a>, Option<&'a str>),
-    Thought(Reply<'a>, Option<&'a str>),
-    IllFormed(&'a str)
+pub enum Component<'input> {
+    Teller(Vec<Format<'input>>),
+    Dialogue(Reply<'input>, Option<&'input str>),
+    Thought(Reply<'input>, Option<&'input str>),
+    IllFormed(&'input str)
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct Paragraph<'a>(pub Vec<Component<'a>>);
+pub struct Paragraph<'input>(pub Vec<Component<'input>>);
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Section<'a> {
-    Story(Vec<Paragraph<'a>>),
-    Aside(Option<&'a str>, Vec<Paragraph<'a>>),
-    IllFormed(Vec<&'a str>)
+pub enum Section<'input> {
+    Story(Vec<Paragraph<'input>>),
+    Aside(Option<&'input str>, Vec<Paragraph<'input>>),
+    IllFormed(Vec<&'input str>)
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub struct Document<'a>(pub Vec<Section<'a>>);
+pub struct Document<'input>(pub Vec<Section<'input>>);

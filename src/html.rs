@@ -4,7 +4,7 @@ use ::typography::Space;
 
 pub struct Html;
 
-impl<'a> Renderer<'a, Markup> for Html {
+impl<'input> Renderer<'input, Markup> for Html {
     fn append(&self, m1: Markup, m2: Markup) -> Markup {
         html!(
             (m1);
@@ -35,15 +35,15 @@ impl<'a> Renderer<'a, Markup> for Html {
         )
     }
 
-    fn render_word(&self, word: &'a str) -> Markup {
+    fn render_word(&self, word: &'input str) -> Markup {
         html!((word))
     }
 
-    fn render_mark(&self, mark: &'a str) -> Markup {
+    fn render_mark(&self, mark: &'input str) -> Markup {
         html!((mark))
     }
 
-    fn render_illformed(&self, err: &'a str) -> Markup {
+    fn render_illformed(&self, err: &'input str) -> Markup {
         html!((err))
     }
 
@@ -71,7 +71,7 @@ impl<'a> Renderer<'a, Markup> for Html {
         )
     }
 
-    fn thought_template(&self, thought: Markup, author: &Option<&'a str>) -> Markup {
+    fn thought_template(&self, thought: Markup, author: &Option<&'input str>) -> Markup {
         let author = author.map(|x| format!(" by-{}", x)).unwrap_or("".to_string());
 
         html!(
@@ -81,7 +81,7 @@ impl<'a> Renderer<'a, Markup> for Html {
         )
     }
 
-    fn dialogue_template(&self, dial: Markup, author: &Option<&'a str>) -> Markup {
+    fn dialogue_template(&self, dial: Markup, author: &Option<&'input str>) -> Markup {
         let author = author.map(|x| format!(" by-{}", x)).unwrap_or("".to_string());
 
         html!(
@@ -105,7 +105,7 @@ impl<'a> Renderer<'a, Markup> for Html {
         )
     }
 
-    fn aside_template(&self, cls: &Option<&'a str>, aside: Markup) -> Markup {
+    fn aside_template(&self, cls: &Option<&'input str>, aside: Markup) -> Markup {
         html!(
             div class={ "aside " (cls.unwrap_or("")) } {
                 (aside)
