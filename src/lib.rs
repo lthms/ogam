@@ -1,8 +1,12 @@
+#![cfg_attr(feature = "html", feature(proc_macro_non_items))]
+
 #[macro_use] extern crate nom;
+#[cfg(feature="html")] extern crate maud;
 
 pub mod ast;
 pub mod typography;
 pub mod generator;
+#[cfg(feature="html")] pub mod html;
 
 use ast::*;
 use typography::Typography;

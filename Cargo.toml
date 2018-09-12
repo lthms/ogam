@@ -3,5 +3,13 @@ name = "galatian"
 version = "0.1.0"
 authors = ["Thomas Letan <contact@thomasletan.fr>"]
 
+[features]
+default = []
+html = ["maud"]
+
 [dependencies]
 nom = "4.0"
+
+[dependencies.maud]
+version = "0.18"
+optional = true
