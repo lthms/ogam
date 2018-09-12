@@ -343,7 +343,10 @@ pub mod test {
 
     impl<'a> Renderer<'a, String> for Html {
         fn append(&self, before: String, after: String) -> String {
-            format!("{}{}", before, after)
+            let mut before = before;
+            before.push_str(after.as_ref());
+
+            before
         }
 
         fn empty(&self) -> String {
