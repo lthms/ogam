@@ -359,22 +359,22 @@ named!(component<&str, Component>, alt_complete! (
          |  do_parse!(
               blank >>
               dial: call!(reply, '[' , ']') >>
-              by: opt!(do_parse!(
+              by: opt!(complete!(do_parse!(
                      char!('(') >>
                      name: call!(nom::alphanumeric1) >>
                      char!(')') >>
                      white_spaces >>
-                     (name))) >>
+                     (name)))) >>
               (Component::Dialogue(dial, by)))
          |  do_parse!(
               blank >>
               th: call!(reply, '<' , '>') >>
-              by: opt!(do_parse!(
+              by: opt!(complete!(do_parse!(
                      char!('(') >>
                      name: call!(nom::alphanumeric1) >>
                      char!(')') >>
                      white_spaces >>
-                     (name))) >>
+                     (name)))) >>
               (Component::Thought(th, by)))
          | map!(consume_until!("\n"), Component::IllFormed)
          )
@@ -382,6 +382,27 @@ named!(component<&str, Component>, alt_complete! (
 
 #[test]
 fn test_component() {
+    assert_eq!(
+        component("[Hi]"),
+        Ok(
+            (
+                "",
+                Component::Dialogue(
+                    Reply::Simple(
+                        vec![
+                            Format::Raw(
+                                vec![
+                                    Atom::Word("Hi")
+                                ]
+                            )
+                        ]
+                    ),
+                    None
+                )
+            )
+        )
+    );
+
     assert_eq!(
         component("Hi stranger,\n*this* is me."),
         Ok(
