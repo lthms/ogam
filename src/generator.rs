@@ -477,3 +477,104 @@ pub mod test {
         );
     }
 }
+
+impl<'input, R, A: Renderer<'input, R>, S, B: Renderer<'input, S>> Renderer<'input, (R, S)> for (A, B) {
+    fn append(&self, before: (R, S), after: (R, S)) -> (R, S) {
+        (self.0.append(before.0, after.0), self.1.append(before.1, after.1))
+    }
+
+    fn empty(&self) -> (R, S) {
+        (self.0.empty(), self.1.empty())
+    }
+
+    fn render_space(&self, space: Space) -> (R, S) {
+        match space {
+            Space::Normal => {
+                (self.0.render_space(Space::Normal), self.1.render_space(Space::Normal))
+            },
+            Space::Nbsp => {
+                (self.0.render_space(Space::Nbsp), self.1.render_space(Space::Nbsp))
+            },
+            Space::None => {
+                (self.0.render_space(Space::None), self.1.render_space(Space::None))
+            },
+        }
+    }
+
+    fn render_word(&self, word: &'input str) -> (R, S) {
+        (self.0.render_word(word), self.1.render_word(word))
+    }
+
+    fn render_mark(&self, mark: &'input str) -> (R, S) {
+        (self.0.render_mark(mark), self.1.render_mark(mark))
+    }
+
+    fn render_illformed(&self, err: &'input str) -> (R, S) {
+        (self.0.render_illformed(err), self.1.render_illformed(err))
+    }
+
+    fn emph_template(&self, format: (R, S)) -> (R, S) {
+        (self.0.emph_template(format.0), self.1.emph_template(format.1))
+    }
+
+    fn strong_emph_template(&self, format: (R, S)) -> (R, S) {
+        (
+            self.0.strong_emph_template(format.0),
+            self.1.strong_emph_template(format.1)
+        )
+    }
+
+    fn reply_template(&self, reply: (R, S)) -> (R, S) {
+        (self.0.reply_template(reply.0), self.1.reply_template(reply.1))
+    }
+
+    fn thought_template(
+        &self,
+        reply: (R, S),
+        author: &Option<&'input str>
+    ) -> (R, S) {
+        (self.0.thought_template(reply.0, author), self.1.thought_template(reply.1, author))
+    }
+
+    fn dialogue_template(
+        &self,
+        reply: (R, S),
+        author: &Option<&'input str>
+    ) -> (R, S) {
+        (self.0.dialogue_template(reply.0, author), self.1.dialogue_template(reply.1, author))
+    }
+
+    fn between_dialogue(&self) -> (R, S) {
+        (self.0.between_dialogue(), self.1.between_dialogue())
+    }
+
+    fn illformed_inline_template(&self, err: (R, S)) -> (R, S) {
+        (
+            self.0.illformed_inline_template(err.0),
+            self.1.illformed_inline_template(err.1)
+        )
+    }
+
+    fn paragraph_template(&self, para: (R, S)) -> (R, S) {
+        (self.0.paragraph_template(para.0), self.1.paragraph_template(para.1))
+    }
+
+    fn illformed_block_template(&self, err: (R, S)) -> (R, S) {
+        (
+            self.0.illformed_block_template(err.0),
+            self.1.illformed_block_template(err.1)
+        )
+    }
+
+    fn story_template(&self, story: (R, S)) -> (R, S) {
+        (self.0.story_template(story.0), self.1.story_template(story.1))
+    }
+
+    fn aside_template(
+        &self,
+        cls: &Option<&'input str>,
+        aside: (R, S)
+    ) -> (R, S) {
+        (self.0.aside_template(cls, aside.0), self.1.aside_template(cls, aside.1))
+    }
+}
