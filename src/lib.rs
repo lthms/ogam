@@ -882,7 +882,7 @@ pub fn parse_galatian_document<'a>(input: &'a str) -> Result<Document<'a>, Error
     }
 }
 
-pub fn render_galatian_document<'a, O, T: Typography, R: Renderer<O>>(input: &'a str, typo: &T, renderer: &R) -> Result<O, Error<'a>> {
+pub fn render_galatian_document<'a, O, T: Typography, R: Renderer<'a, O>>(input: &'a str, typo: &T, renderer: &R) -> Result<O, Error<'a>> {
     Ok(render_document(&parse_galatian_document(input)?, typo, renderer))
 }
 
