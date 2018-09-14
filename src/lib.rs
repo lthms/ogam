@@ -499,11 +499,8 @@ named!(empty_line<&str, ()>, do_parse!(
 named!(
     paragraph<&str, Paragraph>,
     do_parse!(
-        fst: peek!(nom::anychar) >>
-        p: cond_reduce!(
-            fst != '_',
-            some!(component)
-        ) >>
+        not!(peek!(one_of!("_="))) >>
+        p: some!(component) >>
         many0!(complete!(empty_line)) >>
         (Paragraph(p))
     )
@@ -614,7 +611,11 @@ named!(
             some!(char!('_')) >>
             (Section::Aside(cls, sec))
         )
-      | map!(some!(paragraph), Section::Story)
+      | do_parse!(
+          opt!(do_parse!(some!(char!('=')) >> some!(empty_line) >> (()))) >>
+          r: map!(some!(paragraph), Section::Story) >>
+          (r)
+        )
       | map!(search_recovery_point, Section::IllFormed)
     ) >>
     many0!(complete!(empty_line)) >>
@@ -783,6 +784,63 @@ named!(
 
 #[test]
 fn test_document() {
+    assert_eq!(
+        document(r#"She opened the letter.
+
+=========
+
+She cry."#),
+        Ok(
+            (
+                "",
+                Document(
+                    vec![
+                        Section::Story(
+                            vec![
+                                Paragraph(
+                                    vec![
+                                        Component::Teller(
+                                            vec![
+                                                Format::Raw(
+                                                    vec![
+                                                        Atom::Word("She"),
+                                                        Atom::Word("opened"),
+                                                        Atom::Word("the"),
+                                                        Atom::Word("letter"),
+                                                        Atom::Punctuation(Mark::Point),
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                        Section::Story(
+                            vec![
+                                Paragraph(
+                                    vec![
+                                        Component::Teller(
+                                            vec![
+                                                Format::Raw(
+                                                    vec![
+                                                        Atom::Word("She"),
+                                                        Atom::Word("cry"),
+                                                        Atom::Punctuation(Mark::Point),
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            )
+        )
+    );
+
     assert_eq!(
         document(r#"She opened the letter, and read it.
 
