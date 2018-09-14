@@ -553,10 +553,7 @@ fn test_paragraph() {
 named_args!(
     search_recovery_point_rec<'a>(acc: &mut Vec<&'a str>)<&'a str, ()>,
     alt!(
-        do_parse!(
-            alt!(map!(some!(empty_line), |_| ()) | map!(eof!(), |_| ())) >>
-            (())
-        )
+        map!(some!(empty_line), |_| ())
       | do_parse!(
           map!(consume_until!("\n"), |l| acc.push(l)) >>
           char!('\n') >>
@@ -572,8 +569,8 @@ fn search_recovery_point<'input>(input: &'input str) -> nom::IResult<&'input str
         Ok((input, _)) => {
             Ok((input, acc))
         },
-        Err(rest) => {
-            Err(rest)
+        Err(_) => {
+            Ok(("", acc))
         }
     }
 }
@@ -787,7 +784,7 @@ fn test_document() {
     assert_eq!(
         document(r#"She opened the letter.
 
-=========
+======
 
 She cry."#),
         Ok(
@@ -833,6 +830,46 @@ She cry."#),
                                         )
                                     ]
                                 )
+                            ]
+                        ),
+                    ]
+                )
+            )
+        )
+    );
+    assert_eq!(
+        document(r#"She opened the letter.
+
+======She cry."#),
+        Ok(
+            (
+                "",
+                Document(
+                    vec![
+                        Section::Story(
+                            vec![
+                                Paragraph(
+                                    vec![
+                                        Component::Teller(
+                                            vec![
+                                                Format::Raw(
+                                                    vec![
+                                                        Atom::Word("She"),
+                                                        Atom::Word("opened"),
+                                                        Atom::Word("the"),
+                                                        Atom::Word("letter"),
+                                                        Atom::Punctuation(Mark::Point),
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                )
+                            ]
+                        ),
+                        Section::IllFormed(
+                            vec![
+                                "======She cry."
                             ]
                         )
                     ]
