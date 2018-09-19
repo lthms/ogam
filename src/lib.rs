@@ -14,7 +14,7 @@ use typography::Typography;
 use generator::Renderer;
 pub use generator::render;
 
-const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t  ";
+const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t   ";
 
 macro_rules! some (
     ($input:expr, $sub:ident!( $($args:tt)* )) => (
@@ -76,7 +76,7 @@ macro_rules! recover_incomplete (
 );
 
 named!(white_spaces<&str, ()>,
-       recover_incomplete!(take_while!(|c| "\r\t   ".contains(c)))
+       recover_incomplete!(take_while!(|c| "\r\t    ".contains(c)))
 );
 
 named!(blank<&str, ()>,

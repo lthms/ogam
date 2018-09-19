@@ -7,8 +7,7 @@ pub struct Html;
 impl<'input> Renderer<'input, Markup> for Html {
     fn append(&self, m1: Markup, m2: Markup) -> Markup {
         html!(
-            (m1);
-            (m2)
+            (m1)(m2)
         )
     }
 
