@@ -44,6 +44,7 @@ pub trait Renderer<'input, O> {
 struct Memory<'ast, 'input: 'ast> {
     atom: &'ast Atom<'input>,
     was_dialogue: bool,
+    next_paragraph_starts_with_dialogue: bool,
 }
 
 impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
@@ -51,6 +52,7 @@ impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
         Memory {
             atom: &Atom::Void,
             was_dialogue: false,
+            next_paragraph_starts_with_dialogue: false,
         }
     }
 
@@ -69,6 +71,7 @@ impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
     fn reset(&mut self) {
         self.reset_atom();
         self.was_dialogue = false;
+        self.next_paragraph_starts_with_dialogue = false;
     }
 }
 
@@ -261,7 +264,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
                     will_be_dialogue = if i+1 < self.0.len() {
                         self.0[i+1].is_dialog()
                     } else {
-                        false
+                        mem.next_paragraph_starts_with_dialogue
                     };
 
                     let comp: &'ast Component<'input> = &self.0[i];
@@ -282,6 +285,28 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
     }
 }
 
+fn render_paragraphs<'ast, 'input: 'ast, O, T: Typography, R: Renderer<'input, O>>(
+    ast: &'ast Vec<Paragraph<'input>>,
+    typo: &T,
+    renderer: &R,
+    mem: &mut Memory<'ast, 'input>
+) -> O {
+    let mut res = renderer.empty();
+
+    for i in 0..ast.len() {
+        mem.next_paragraph_starts_with_dialogue =
+            if i+1 < ast.len() {
+                ast[i+1].0[0].is_dialog()
+            } else {
+                false
+            };
+
+        res = renderer.append(res, ast[i].render(typo, renderer, mem));
+    }
+
+    res
+}
+
 impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Section<'input> {
     fn render<O, T: Typography, R: Renderer<'input, O>>(
         &'ast self,
@@ -293,10 +318,10 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Section<'input> {
 
         match self {
             Section::Story(atoms) => {
-                renderer.story_template(atoms.render(typo, renderer, mem))
+                renderer.story_template(render_paragraphs(atoms, typo, renderer, mem))
             },
             Section::Aside(cls, atoms) => {
-                renderer.aside_template(cls, atoms.render(typo, renderer, mem))
+                renderer.aside_template(cls, render_paragraphs(atoms, typo, renderer, mem))
             },
             Section::IllFormed(vec) => {
                 renderer.illformed_block_template(
