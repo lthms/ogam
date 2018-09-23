@@ -13,7 +13,7 @@ pub trait Renderer<'input, O> {
     fn emph_template(&self, format: O) -> O;
     fn strong_emph_template(&self, format: O) -> O;
 
-    fn reply_template(&self, reply: O) -> O;
+    fn reply_template(&self, reply: O, author: &Option<&'input str>) -> O;
 
     fn thought_template(&self, reply: O, author: &Option<&'input str>) -> O;
     fn dialogue_template(&self, reply: O, author: &Option<&'input str>) -> O;
@@ -157,6 +157,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Format<'input> {
 impl<'ast, 'input: 'ast> Reply<'input> {
     fn render_reply<O, T: Typography, R: Renderer<'input, O>>(
         &'ast self,
+        author: &Option<&'input str>,
         typo: &T,
         renderer: &R,
         open: Option<&'static Atom<'static>>,
@@ -166,14 +167,14 @@ impl<'ast, 'input: 'ast> Reply<'input> {
         match self {
             Reply::Simple(atoms) => {
                 let o1 = open.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
-                let o2 = renderer.reply_template(atoms.render(typo, renderer, mem));
+                let o2 = renderer.reply_template(atoms.render(typo, renderer, mem), author);
                 let o3 = close.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, o3))
             }
             Reply::WithSay(atoms, insert, None) => {
                 let o1 = open.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
-                let o2 = renderer.reply_template(atoms.render(typo, renderer, mem));
+                let o2 = renderer.reply_template(atoms.render(typo, renderer, mem), author);
                 let o3 = close.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
                 let o4 = insert.render(typo, renderer, mem);
 
@@ -181,9 +182,9 @@ impl<'ast, 'input: 'ast> Reply<'input> {
             }
             Reply::WithSay(atoms1, insert, Some(atoms2)) => {
                 let o1 = open.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
-                let o2 = renderer.reply_template(atoms1.render(typo, renderer, mem));
+                let o2 = renderer.reply_template(atoms1.render(typo, renderer, mem), author);
                 let o3 = insert.render(typo, renderer, mem);
-                let o4 = renderer.reply_template(atoms2.render(typo, renderer, mem));
+                let o4 = renderer.reply_template(atoms2.render(typo, renderer, mem), author);
                 let o5 = close.map(|x| x.render(typo, renderer, mem)).unwrap_or(renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, renderer.append(o3, renderer.append(o4, o5))))
@@ -220,7 +221,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
             }
             Component::Thought(reply, cls) => {
                 renderer.thought_template(
-                    reply.render_reply(typo, renderer, None, None, mem),
+                    reply.render_reply(cls, typo, renderer, None, None, mem),
                     cls
                 )
             },
@@ -229,7 +230,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
                 let e = typo.close_dialog(will_be_dialog);
 
                 let res = renderer.dialogue_template(
-                    reply.render_reply(typo, renderer, o, e, mem),
+                    reply.render_reply(cls, typo, renderer, o, e, mem),
                     cls
                 );
 
@@ -406,7 +407,7 @@ pub mod test {
             format!("<strong>{}</strong>", format)
         }
 
-        fn reply_template(&self, reply: String) -> String {
+        fn reply_template(&self, reply: String, _author: &Option<&'input str>) -> String {
             format!("<span div=\"reply\">{}</span>", reply)
         }
 
@@ -549,8 +550,8 @@ impl<'input, R, A: Renderer<'input, R>, S, B: Renderer<'input, S>> Renderer<'inp
         )
     }
 
-    fn reply_template(&self, reply: (R, S)) -> (R, S) {
-        (self.0.reply_template(reply.0), self.1.reply_template(reply.1))
+    fn reply_template(&self, reply: (R, S), author: &Option<&'input str>) -> (R, S) {
+        (self.0.reply_template(reply.0, author), self.1.reply_template(reply.1, author))
     }
 
     fn thought_template(

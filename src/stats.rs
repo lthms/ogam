@@ -85,7 +85,7 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         format
     }
 
-    fn reply_template(&self, reply: Digest<'input>) -> Digest<'input> {
+    fn reply_template(&self, reply: Digest<'input>, _author: &Option<&'input str>) -> Digest<'input> {
         reply
     }
 

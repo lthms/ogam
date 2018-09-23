@@ -62,7 +62,7 @@ impl<'input> Renderer<'input, Markup> for Html {
         )
     }
 
-    fn reply_template(&self, rep: Markup) -> Markup {
+    fn reply_template(&self, rep: Markup, _author: &Option<&'input str>) -> Markup {
         html!(
             span class="reply" {
                 (rep)
