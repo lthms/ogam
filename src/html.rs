@@ -17,7 +17,7 @@ impl<'input> Renderer<'input, Markup> for Html {
 
     fn story_template(&self, m: Markup) -> Markup {
         html!(
-            div {
+            section class="story" {
                 (m)
             }
         )
