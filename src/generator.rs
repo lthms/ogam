@@ -265,7 +265,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
                     will_be_dialogue = if i+1 < self.0.len() {
                         self.0[i+1].is_dialog()
                     } else {
-                        mem.next_paragraph_starts_with_dialogue
+                        false
                     };
 
                     let comp: &'ast Component<'input> = &self.0[i];
