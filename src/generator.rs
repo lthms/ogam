@@ -210,6 +210,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
         typo: &T,
         renderer: &R,
         will_be_dialog: bool,
+        is_last: bool,
         mem: &mut Memory<'ast, 'input>
     ) -> O {
         let res = match self {
@@ -234,7 +235,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
                     cls
                 );
 
-                let sep = if will_be_dialog {
+                let sep = if will_be_dialog && !is_last {
                     mem.reset_atom();
                     renderer.between_dialogue()
                 } else {
@@ -258,14 +259,14 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
         renderer: &R,
         mem: &mut Memory<'ast, 'input>
     ) -> O {
-        let mut will_be_dialogue;
         let mut res = renderer.empty();
 
                 for i in 0..self.0.len() {
-                    will_be_dialogue = if i+1 < self.0.len() {
+                    let is_last = i+1 >= self.0.len();
+                    let will_be_dialogue = if !is_last {
                         self.0[i+1].is_dialog()
                     } else {
-                        false
+                        mem.next_paragraph_starts_with_dialogue
                     };
 
                     let comp: &'ast Component<'input> = &self.0[i];
@@ -275,6 +276,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
                             typo,
                             renderer,
                             will_be_dialogue,
+                            is_last,
                             mem
                         )
                     );
