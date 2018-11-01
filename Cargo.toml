@@ -11,5 +11,5 @@ html = ["maud"]
 nom = "4.0"
 
 [dependencies.maud]
-version = "0.18"
+version = "0.19"
 optional = true

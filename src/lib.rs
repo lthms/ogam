@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "html", feature(proc_macro_non_items))]
+#![cfg_attr(feature = "html", feature(proc_macro_hygiene))]
 
 #[macro_use] extern crate nom;
 #[cfg(feature="html")] extern crate maud;
