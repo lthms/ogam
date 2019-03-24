@@ -1,14 +1,12 @@
-use maud::{Markup, PreEscaped, html};
-use ::generator::Renderer;
-use ::typography::Space;
+use generator::Renderer;
+use maud::{html, Markup, PreEscaped};
+use typography::Space;
 
 pub struct Html;
 
 impl<'input> Renderer<'input, Markup> for Html {
     fn append(&self, m1: Markup, m2: Markup) -> Markup {
-        html!(
-            (m1)(m2)
-        )
+        html!((m1)(m2))
     }
 
     fn empty(&self) -> Markup {
@@ -24,13 +22,11 @@ impl<'input> Renderer<'input, Markup> for Html {
     }
     fn render_space(&self, space: Space) -> Markup {
         html!(
-            (PreEscaped(
-                match space {
-                    Space::None => "",
-                    Space::Normal => " ",
-                    Space::Nbsp => "&nbsp;",
-                }
-            ))
+            (PreEscaped(match space {
+                Space::None => "",
+                Space::Normal => " ",
+                Space::Nbsp => "&nbsp;",
+            }))
         )
     }
 
@@ -71,7 +67,9 @@ impl<'input> Renderer<'input, Markup> for Html {
     }
 
     fn thought_template(&self, thought: Markup, author: &Option<&'input str>) -> Markup {
-        let author = author.map(|x| format!(" by-{}", x)).unwrap_or("".to_string());
+        let author = author
+            .map(|x| format!(" by-{}", x))
+            .unwrap_or("".to_string());
 
         html!(
             span class={ "thought" (author) } {
@@ -81,7 +79,9 @@ impl<'input> Renderer<'input, Markup> for Html {
     }
 
     fn dialogue_template(&self, dial: Markup, author: &Option<&'input str>) -> Markup {
-        let author = author.map(|x| format!(" by-{}", x)).unwrap_or("".to_string());
+        let author = author
+            .map(|x| format!(" by-{}", x))
+            .unwrap_or("".to_string());
 
         html!(
             span class={ "dialogue" (author) } {
@@ -91,9 +91,7 @@ impl<'input> Renderer<'input, Markup> for Html {
     }
 
     fn between_dialogue(&self) -> Markup {
-        html!(
-            (PreEscaped("</p><p>"))
-        )
+        html!((PreEscaped("</p><p>")))
     }
 
     fn paragraph_template(&self, para: Markup) -> Markup {

@@ -1,18 +1,21 @@
 #![cfg_attr(feature = "html", feature(proc_macro_hygiene))]
 
-#[macro_use] extern crate nom;
-#[cfg(feature="html")] extern crate maud;
+#[macro_use]
+extern crate nom;
+#[cfg(feature = "html")]
+extern crate maud;
 
 pub mod ast;
-pub mod typography;
 pub mod generator;
+#[cfg(feature = "html")]
+pub mod html;
 pub mod stats;
-#[cfg(feature="html")] pub mod html;
+pub mod typography;
 
 use ast::*;
-use typography::Typography;
-use generator::Renderer;
 pub use generator::render;
+use generator::Renderer;
+use typography::Typography;
 
 const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t   ";
 
@@ -125,7 +128,10 @@ named!(atom<&str, Atom>, do_parse!(
 fn test_atom() {
     assert_eq!(atom(","), Ok(("", Atom::Punctuation(Mark::Comma))));
     assert_eq!(atom(", "), Ok(("", Atom::Punctuation(Mark::Comma))));
-    assert_eq!(atom("......."), Ok(("", Atom::Punctuation(Mark::SuspensionPoints))));
+    assert_eq!(
+        atom("......."),
+        Ok(("", Atom::Punctuation(Mark::SuspensionPoints)))
+    );
     assert_eq!(atom("’"), Ok(("", Atom::Punctuation(Mark::Apostrophe))));
     assert_eq!(atom("`@test`"), Ok(("", Atom::Word("@test"))));
     assert_eq!(atom("test"), Ok(("", Atom::Word("test"))));
@@ -172,100 +178,76 @@ named!(format<&str, Format>, call!(format_rec, false, false, false));
 fn test_format() {
     assert_eq!(
         format("Hi stranger, how are you?"),
-        Ok(
-            (
-                "",
-                Format::Raw(
-                    vec![
-                        Atom::Word("Hi"),
-                        Atom::Word("stranger"),
-                        Atom::Punctuation(Mark::Comma),
-                        Atom::Word("how"),
-                        Atom::Word("are"),
-                        Atom::Word("you"),
-                        Atom::Punctuation(Mark::Question),
-                    ]
-                )
-            )
-        )
+        Ok((
+            "",
+            Format::Raw(vec![
+                Atom::Word("Hi"),
+                Atom::Word("stranger"),
+                Atom::Punctuation(Mark::Comma),
+                Atom::Word("how"),
+                Atom::Word("are"),
+                Atom::Word("you"),
+                Atom::Punctuation(Mark::Question),
+            ])
+        ))
     );
 
     assert_eq!(
-        format(r#"Hi stranger, how
-are you?"#),
-        Ok(
-            (
-                "",
-                Format::Raw(
-                    vec![
-                        Atom::Word("Hi"),
-                        Atom::Word("stranger"),
-                        Atom::Punctuation(Mark::Comma),
-                        Atom::Word("how"),
-                        Atom::Word("are"),
-                        Atom::Word("you"),
-                        Atom::Punctuation(Mark::Question),
-                    ]
-                )
-            )
-        )
+        format(
+            r#"Hi stranger, how
+are you?"#
+        ),
+        Ok((
+            "",
+            Format::Raw(vec![
+                Atom::Word("Hi"),
+                Atom::Word("stranger"),
+                Atom::Punctuation(Mark::Comma),
+                Atom::Word("how"),
+                Atom::Word("are"),
+                Atom::Word("you"),
+                Atom::Punctuation(Mark::Question),
+            ])
+        ))
     );
 
     assert_eq!(
-        format(r#"Hi stranger, how
+        format(
+            r#"Hi stranger, how
 
-are you?"#),
-        Ok(
-            (
-                "\n\nare you?",
-                Format::Raw(
-                    vec![
-                        Atom::Word("Hi"),
-                        Atom::Word("stranger"),
-                        Atom::Punctuation(Mark::Comma),
-                        Atom::Word("how")
-                    ]
-                )
-            )
-        )
+are you?"#
+        ),
+        Ok((
+            "\n\nare you?",
+            Format::Raw(vec![
+                Atom::Word("Hi"),
+                Atom::Word("stranger"),
+                Atom::Punctuation(Mark::Comma),
+                Atom::Word("how")
+            ])
+        ))
     );
 
     assert_eq!(
         format("+Hi stranger+, how are you?"),
-        Ok(
-            (
-                ", how are you?",
-                Format::StrongEmph(
-                    vec![
-                        Format::Raw(
-                            vec![
-                                Atom::Word("Hi"),
-                                Atom::Word("stranger")
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            ", how are you?",
+            Format::StrongEmph(vec![Format::Raw(vec![
+                Atom::Word("Hi"),
+                Atom::Word("stranger")
+            ])])
+        ))
     );
 
     assert_eq!(
         format("+Hi *stranger*+, how are you?"),
-        Ok(
-            (
-                ", how are you?",
-                Format::StrongEmph(
-                    vec![
-                        Format::Raw(vec![Atom::Word("Hi")]),
-                        Format::Emph(
-                            vec![
-                                Format::Raw(vec![Atom::Word("stranger")])
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            ", how are you?",
+            Format::StrongEmph(vec![
+                Format::Raw(vec![Atom::Word("Hi")]),
+                Format::Emph(vec![Format::Raw(vec![Atom::Word("stranger")])])
+            ])
+        ))
     );
 
     assert_eq!(format("+Hi *+ stranger*, how are you?").is_err(), true);
@@ -302,52 +284,33 @@ named_args!(reply(b: char, e: char)<&str, Reply>, do_parse!(
 fn test_reply() {
     assert_eq!(
         reply("[Hi stranger]", '[', ']'),
-        Ok(
-            (
-                "",
-                Reply::Simple(
-                    vec![
-                        Format::Raw(
-                            vec![
-                                Atom::Word("Hi"),
-                                Atom::Word("stranger"),
-
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            "",
+            Reply::Simple(vec![Format::Raw(vec![
+                Atom::Word("Hi"),
+                Atom::Word("stranger"),
+            ])])
+        ))
     );
 
     assert_eq!(
         reply("[Hi stranger,| they salute.|]", '[', ']'),
-        Ok(
-            (
-                "",
-                Reply::WithSay(
-                    vec![
-                        Format::Raw(
-                            vec![
-                                Atom::Word("Hi"),
-                                Atom::Word("stranger"),
-                                Atom::Punctuation(Mark::Comma)
-                            ]
-                        )
-                    ],
-                    vec![
-                        Format::Raw(
-                            vec![
-                                Atom::Word("they"),
-                                Atom::Word("salute"),
-                                Atom::Punctuation(Mark::Point)
-                            ]
-                        )
-                    ],
-                    None
-                )
+        Ok((
+            "",
+            Reply::WithSay(
+                vec![Format::Raw(vec![
+                    Atom::Word("Hi"),
+                    Atom::Word("stranger"),
+                    Atom::Punctuation(Mark::Comma)
+                ])],
+                vec![Format::Raw(vec![
+                    Atom::Word("they"),
+                    Atom::Word("salute"),
+                    Atom::Punctuation(Mark::Point)
+                ])],
+                None
             )
-        )
+        ))
     );
 }
 
@@ -390,103 +353,66 @@ named!(component<&str, Component>, alt_complete! (
 fn test_component() {
     assert_eq!(
         component("[Hi]"),
-        Ok(
-            (
-                "",
-                Component::Dialogue(
-                    Reply::Simple(
-                        vec![
-                            Format::Raw(
-                                vec![
-                                    Atom::Word("Hi")
-                                ]
-                            )
-                        ]
-                    ),
-                    None
-                )
+        Ok((
+            "",
+            Component::Dialogue(
+                Reply::Simple(vec![Format::Raw(vec![Atom::Word("Hi")])]),
+                None
             )
-        )
+        ))
     );
 
     assert_eq!(
         component("Hi stranger,\n*this* is me."),
-        Ok(
-            (
-                "",
-                Component::Teller(
-                    vec![
-                        Format::Raw(
-                            vec![
-                                Atom::Word("Hi"),
-                                Atom::Word("stranger"),
-                                Atom::Punctuation(Mark::Comma),
-                            ]
-                        ),
-                        Format::Emph(
-                            vec![
-                                Format::Raw(
-                                    vec![
-                                        Atom::Word("this"),
-                                    ]
-                                )
-                            ]
-                        ),
-                        Format::Raw(
-                            vec![
-                                Atom::Word("is"),
-                                Atom::Word("me"),
-                                Atom::Punctuation(Mark::Point)
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            "",
+            Component::Teller(vec![
+                Format::Raw(vec![
+                    Atom::Word("Hi"),
+                    Atom::Word("stranger"),
+                    Atom::Punctuation(Mark::Comma),
+                ]),
+                Format::Emph(vec![Format::Raw(vec![Atom::Word("this"),])]),
+                Format::Raw(vec![
+                    Atom::Word("is"),
+                    Atom::Word("me"),
+                    Atom::Punctuation(Mark::Point)
+                ])
+            ])
+        ))
     );
 
     assert_eq!(
         component("Hi stranger, this is me."),
-        Ok(
-            (
-                "",
-                Component::Teller(
-                    vec![
-                        Format::Raw(
-                            vec![
-                                Atom::Word("Hi"),
-                                Atom::Word("stranger"),
-                                Atom::Punctuation(Mark::Comma),
-                                Atom::Word("this"),
-                                Atom::Word("is"),
-                                Atom::Word("me"),
-                                Atom::Punctuation(Mark::Point)
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            "",
+            Component::Teller(vec![Format::Raw(vec![
+                Atom::Word("Hi"),
+                Atom::Word("stranger"),
+                Atom::Punctuation(Mark::Comma),
+                Atom::Word("this"),
+                Atom::Word("is"),
+                Atom::Word("me"),
+                Atom::Punctuation(Mark::Point)
+            ])])
+        ))
     );
 
     assert_eq!(
         component("[Hi](alice)"),
-        Ok(
-            (
-                "",
-                Component::Dialogue(
-                    Reply::Simple(
-                        vec![
-                            Format::Raw(vec![Atom::Word("Hi")])
-                        ]
-                    ),
-                    Some("alice")
-                )
+        Ok((
+            "",
+            Component::Dialogue(
+                Reply::Simple(vec![Format::Raw(vec![Atom::Word("Hi")])]),
+                Some("alice")
             )
-        )
+        ))
     );
 
-    assert_eq!(component("[Hi \ntest"), Ok(("\ntest",Component::IllFormed("[Hi "))));
+    assert_eq!(
+        component("[Hi \ntest"),
+        Ok(("\ntest", Component::IllFormed("[Hi ")))
+    );
 }
 
 named!(empty_line<&str, ()>, do_parse!(
@@ -510,43 +436,27 @@ named!(
 fn test_paragraph() {
     assert_eq!(
         paragraph("[Hi stranger, this is me.] Indeed.\n\n[Hi]"),
-        Ok(
-            (
-                "[Hi]",
-                Paragraph(
-                    vec![
-                        Component::Dialogue(
-                            Reply::Simple(
-                                vec![
-                                    Format::Raw(
-                                        vec![
-                                            Atom::Word("Hi"),
-                                            Atom::Word("stranger"),
-                                            Atom::Punctuation(Mark::Comma),
-                                            Atom::Word("this"),
-                                            Atom::Word("is"),
-                                            Atom::Word("me"),
-                                            Atom::Punctuation(Mark::Point)
-                                        ]
-                                    )
-                                ]
-                            ),
-                            None
-                        ),
-                        Component::Teller(
-                            vec![
-                                Format::Raw(
-                                    vec![
-                                        Atom::Word("Indeed"),
-                                        Atom::Punctuation(Mark::Point)
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            "[Hi]",
+            Paragraph(vec![
+                Component::Dialogue(
+                    Reply::Simple(vec![Format::Raw(vec![
+                        Atom::Word("Hi"),
+                        Atom::Word("stranger"),
+                        Atom::Punctuation(Mark::Comma),
+                        Atom::Word("this"),
+                        Atom::Word("is"),
+                        Atom::Word("me"),
+                        Atom::Punctuation(Mark::Point)
+                    ])]),
+                    None
+                ),
+                Component::Teller(vec![Format::Raw(vec![
+                    Atom::Word("Indeed"),
+                    Atom::Punctuation(Mark::Point)
+                ])])
+            ])
+        ))
     );
 }
 
@@ -563,31 +473,26 @@ named_args!(
     )
 );
 
-fn search_recovery_point<'input>(input: &'input str) -> nom::IResult<&'input str, Vec<&'input str>> {
+fn search_recovery_point<'input>(
+    input: &'input str,
+) -> nom::IResult<&'input str, Vec<&'input str>> {
     let mut acc = vec![];
     match search_recovery_point_rec(input, &mut acc) {
-        Ok((input, _)) => {
-            Ok((input, acc))
-        },
-        Err(_) => {
-            Ok(("", acc))
-        }
+        Ok((input, _)) => Ok((input, acc)),
+        Err(_) => Ok(("", acc)),
     }
 }
 
 #[test]
 fn test_recovery() {
     assert_eq!(
-        search_recovery_point(r#"We need
+        search_recovery_point(
+            r#"We need
 to try.
 
-Recover!"#),
-        Ok(
-            (
-                "Recover!",
-                vec!["We need", "to try."]
-            )
-        )
+Recover!"#
+        ),
+        Ok(("Recover!", vec!["We need", "to try."]))
     );
 }
 
@@ -625,27 +530,9 @@ fn test_section() {
         section("+\nHi  \n +"),
         Ok((
             "",
-            Section::Story(
-                vec![
-                    Paragraph(
-                        vec![
-                            Component::Teller(
-                                vec![
-                                    Format::StrongEmph(
-                                        vec![
-                                            Format::Raw(
-                                                vec![
-                                                    Atom::Word("Hi")
-                                                ]
-                                            )
-                                        ]
-                                    )
-                                ]
-                            )
-                        ]
-                    )
-                ]
-            )
+            Section::Story(vec![Paragraph(vec![Component::Teller(vec![
+                Format::StrongEmph(vec![Format::Raw(vec![Atom::Word("Hi")])])
+            ])])])
         ))
     );
 
@@ -653,120 +540,66 @@ fn test_section() {
         section("+Hi+"),
         Ok((
             "",
-            Section::Story(
+            Section::Story(vec![Paragraph(vec![Component::Teller(vec![
+                Format::StrongEmph(vec![Format::Raw(vec![Atom::Word("Hi")])])
+            ])])])
+        ))
+    );
+
+    assert_eq!(
+        section(
+            r#"_____letter____
+Dear friend.
+
+I love you.
+_______________"#
+        ),
+        Ok((
+            "",
+            Section::Aside(
+                Some("letter"),
                 vec![
-                    Paragraph(
-                        vec![
-                            Component::Teller(
-                                vec![
-                                    Format::StrongEmph(
-                                        vec![
-                                            Format::Raw(
-                                                vec![
-                                                    Atom::Word("Hi")
-                                                ]
-                                            )
-                                        ]
-                                    )
-                                ]
-                            )
-                        ]
-                    )
+                    Paragraph(vec![Component::Teller(vec![Format::Raw(vec![
+                        Atom::Word("Dear"),
+                        Atom::Word("friend"),
+                        Atom::Punctuation(Mark::Point)
+                    ])])]),
+                    Paragraph(vec![Component::Teller(vec![Format::Raw(vec![
+                        Atom::Word("I"),
+                        Atom::Word("love"),
+                        Atom::Word("you"),
+                        Atom::Punctuation(Mark::Point)
+                    ])])])
                 ]
             )
         ))
     );
 
     assert_eq!(
-        section(r#"_____letter____
+        section(
+            r#"_____letter____
 Dear friend.
 
-I love you.
-_______________"#),
-        Ok(
-            (
-                "",
-                Section::Aside(
-                    Some("letter"),
-                    vec![
-                        Paragraph(
-                            vec![
-                                Component::Teller(
-                                    vec![
-                                        Format::Raw(
-                                            vec![
-                                                Atom::Word("Dear"),
-                                                Atom::Word("friend"),
-                                                Atom::Punctuation(Mark::Point)
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
-                        Paragraph(
-                            vec![
-                                Component::Teller(
-                                    vec![
-                                        Format::Raw(
-                                            vec![
-                                                Atom::Word("I"),
-                                                Atom::Word("love"),
-                                                Atom::Word("you"),
-                                                Atom::Punctuation(Mark::Point)
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
-    );
-
-    assert_eq!(
-        section(r#"_____letter____
-Dear friend.
-
-I love you."#),
-        Ok(
-            (
-                "I love you.",
-                Section::IllFormed(
-                    vec!["_____letter____", "Dear friend."]
-                )
-            )
-        )
+I love you."#
+        ),
+        Ok((
+            "I love you.",
+            Section::IllFormed(vec!["_____letter____", "Dear friend."])
+        ))
     );
 
     assert_eq!(
         section(r#"Dear friend."#),
-        Ok(
-            (
-                "",
-                Section::Story(
-                    vec![
-                        Paragraph(
-                            vec![
-                                Component::Teller(
-                                    vec![
-                                        Format::Raw(
-                                            vec![
-                                                Atom::Word("Dear"),
-                                                Atom::Word("friend"),
-                                                Atom::Punctuation(Mark::Point)
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
-                    ]
-                )
-            )
-        )
+        Ok((
+            "",
+            Section::Story(vec![Paragraph(vec![Component::Teller(vec![Format::Raw(
+                vec![
+                    Atom::Word("Dear"),
+                    Atom::Word("friend"),
+                    Atom::Punctuation(Mark::Point)
+                ]
+            )])])])
+        ))
     );
 }
 
@@ -782,180 +615,102 @@ named!(
 #[test]
 fn test_document() {
     assert_eq!(
-        document(r#"She opened the letter.
+        document(
+            r#"She opened the letter.
 
 ======
 
-She cry."#),
-        Ok(
-            (
-                "",
-                Document(
+She cry."#
+        ),
+        Ok((
+            "",
+            Document(vec![
+                Section::Story(vec![Paragraph(vec![Component::Teller(vec![Format::Raw(
                     vec![
-                        Section::Story(
-                            vec![
-                                Paragraph(
-                                    vec![
-                                        Component::Teller(
-                                            vec![
-                                                Format::Raw(
-                                                    vec![
-                                                        Atom::Word("She"),
-                                                        Atom::Word("opened"),
-                                                        Atom::Word("the"),
-                                                        Atom::Word("letter"),
-                                                        Atom::Punctuation(Mark::Point),
-                                                    ]
-                                                )
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
-                        Section::Story(
-                            vec![
-                                Paragraph(
-                                    vec![
-                                        Component::Teller(
-                                            vec![
-                                                Format::Raw(
-                                                    vec![
-                                                        Atom::Word("She"),
-                                                        Atom::Word("cry"),
-                                                        Atom::Punctuation(Mark::Point),
-                                                    ]
-                                                )
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
+                        Atom::Word("She"),
+                        Atom::Word("opened"),
+                        Atom::Word("the"),
+                        Atom::Word("letter"),
+                        Atom::Punctuation(Mark::Point),
                     ]
-                )
-            )
-        )
+                )])])]),
+                Section::Story(vec![Paragraph(vec![Component::Teller(vec![Format::Raw(
+                    vec![
+                        Atom::Word("She"),
+                        Atom::Word("cry"),
+                        Atom::Punctuation(Mark::Point),
+                    ]
+                )])])]),
+            ])
+        ))
     );
     assert_eq!(
-        document(r#"She opened the letter.
+        document(
+            r#"She opened the letter.
 
-======She cry."#),
-        Ok(
-            (
-                "",
-                Document(
+======She cry."#
+        ),
+        Ok((
+            "",
+            Document(vec![
+                Section::Story(vec![Paragraph(vec![Component::Teller(vec![Format::Raw(
                     vec![
-                        Section::Story(
-                            vec![
-                                Paragraph(
-                                    vec![
-                                        Component::Teller(
-                                            vec![
-                                                Format::Raw(
-                                                    vec![
-                                                        Atom::Word("She"),
-                                                        Atom::Word("opened"),
-                                                        Atom::Word("the"),
-                                                        Atom::Word("letter"),
-                                                        Atom::Punctuation(Mark::Point),
-                                                    ]
-                                                )
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
-                        Section::IllFormed(
-                            vec![
-                                "======She cry."
-                            ]
-                        )
+                        Atom::Word("She"),
+                        Atom::Word("opened"),
+                        Atom::Word("the"),
+                        Atom::Word("letter"),
+                        Atom::Punctuation(Mark::Point),
                     ]
-                )
-            )
-        )
+                )])])]),
+                Section::IllFormed(vec!["======She cry."])
+            ])
+        ))
     );
 
     assert_eq!(
-        document(r#"She opened the letter, and read it.
+        document(
+            r#"She opened the letter, and read it.
 
 _____letter____
 Dear friend.
 
 I love you.
-_______________"#),
-        Ok(
-            (
-                "",
-                Document(
+_______________"#
+        ),
+        Ok((
+            "",
+            Document(vec![
+                Section::Story(vec![Paragraph(vec![Component::Teller(vec![Format::Raw(
                     vec![
-                        Section::Story(
-                            vec![
-                                Paragraph(
-                                    vec![
-                                        Component::Teller(
-                                            vec![
-                                                Format::Raw(
-                                                    vec![
-                                                        Atom::Word("She"),
-                                                        Atom::Word("opened"),
-                                                        Atom::Word("the"),
-                                                        Atom::Word("letter"),
-                                                        Atom::Punctuation(Mark::Comma),
-                                                        Atom::Word("and"),
-                                                        Atom::Word("read"),
-                                                        Atom::Word("it"),
-                                                        Atom::Punctuation(Mark::Point)
-                                                    ]
-                                                )
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
-                        Section::Aside(
-                            Some("letter"),
-                            vec![
-                                Paragraph(
-                                    vec![
-                                        Component::Teller(
-                                            vec![
-                                                Format::Raw(
-                                                    vec![
-                                                        Atom::Word("Dear"),
-                                                        Atom::Word("friend"),
-                                                        Atom::Punctuation(Mark::Point)
-                                                    ]
-                                                )
-                                            ]
-                                        )
-                                    ]
-                                ),
-                                Paragraph(
-                                    vec![
-                                        Component::Teller(
-                                            vec![
-                                                Format::Raw(
-                                                    vec![
-                                                        Atom::Word("I"),
-                                                        Atom::Word("love"),
-                                                        Atom::Word("you"),
-                                                        Atom::Punctuation(Mark::Point)
-                                                    ]
-                                                )
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ]
-                        )
+                        Atom::Word("She"),
+                        Atom::Word("opened"),
+                        Atom::Word("the"),
+                        Atom::Word("letter"),
+                        Atom::Punctuation(Mark::Comma),
+                        Atom::Word("and"),
+                        Atom::Word("read"),
+                        Atom::Word("it"),
+                        Atom::Punctuation(Mark::Point)
+                    ]
+                )])])]),
+                Section::Aside(
+                    Some("letter"),
+                    vec![
+                        Paragraph(vec![Component::Teller(vec![Format::Raw(vec![
+                            Atom::Word("Dear"),
+                            Atom::Word("friend"),
+                            Atom::Punctuation(Mark::Point)
+                        ])])]),
+                        Paragraph(vec![Component::Teller(vec![Format::Raw(vec![
+                            Atom::Word("I"),
+                            Atom::Word("love"),
+                            Atom::Word("you"),
+                            Atom::Punctuation(Mark::Point)
+                        ])])])
                     ]
                 )
-            )
-        )
+            ])
+        ))
     );
 }
 
@@ -965,50 +720,38 @@ pub enum Error<'input> {
     ParsingError,
 }
 
-pub fn parse<'input>(
-    input: &'input str
-) -> Result<Document<'input>, Error<'input>> {
+pub fn parse<'input>(input: &'input str) -> Result<Document<'input>, Error<'input>> {
     match document(input) {
-        Ok(("", res)) => {
-            Ok(res)
-        },
-        Ok((rest, res)) => {
-            Err(Error::IncompleteParsing(res, rest))
-        },
-        _ => {
-            Err(Error::ParsingError)
-        },
+        Ok(("", res)) => Ok(res),
+        Ok((rest, res)) => Err(Error::IncompleteParsing(res, rest)),
+        _ => Err(Error::ParsingError),
     }
 }
 
 pub fn compile<'input, O, T: Typography, R: Renderer<'input, O>>(
     input: &'input str,
     typo: &T,
-    renderer: &R
+    renderer: &R,
 ) -> Result<O, Error<'input>> {
     Ok(render(&parse(input)?, typo, renderer))
 }
 
 #[test]
 fn test_render() {
-    use typography::ENGLISH;
     use stats::Stats;
+    use typography::ENGLISH;
 
     assert_eq!(
-        compile(
-            r#"Hi everyone."#,
-            &ENGLISH,
-            &Stats
-        ).unwrap().words_count,
+        compile(r#"Hi everyone."#, &ENGLISH, &Stats)
+            .unwrap()
+            .words_count,
         2
     );
 
     assert_eq!(
-        compile(
-            r#"Hi everyone. +My name is.. Suly+."#,
-            &ENGLISH,
-            &Stats
-        ).unwrap().signs_count,
+        compile(r#"Hi everyone. +My name is.. Suly+."#, &ENGLISH, &Stats)
+            .unwrap()
+            .signs_count,
         3
     );
 
@@ -1024,7 +767,9 @@ What is your name?
 ____________"#,
             &ENGLISH,
             &Stats
-        ).unwrap().spaces_count,
+        )
+        .unwrap()
+        .spaces_count,
         7
     );
 
@@ -1040,7 +785,9 @@ What is your name?
 ____________"#,
             &ENGLISH,
             &Stats
-        ).unwrap().characters,
+        )
+        .unwrap()
+        .characters,
         ["john"].iter().cloned().collect()
     );
 }

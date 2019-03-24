@@ -1,4 +1,4 @@
-use ::ast::{Mark, Atom};
+use ast::{Atom, Mark};
 
 pub enum Space {
     Normal,
@@ -12,8 +12,7 @@ pub fn choose(s1: Space, s2: Space) -> Space {
         (_, Space::None) => Space::None,
         (Space::Nbsp, _) => Space::Nbsp,
         (_, Space::Nbsp) => Space::Nbsp,
-        _ => Space::Normal
-
+        _ => Space::Normal,
     }
 }
 
@@ -25,29 +24,17 @@ pub trait Typography {
 
     fn before_atom<'a>(&self, atom: &Atom<'a>) -> Space {
         match atom {
-            Atom::Punctuation(ref p) => {
-                self.decide(p).0
-            },
-            Atom::Word(_) => {
-                Space::Normal
-            },
-            Atom::Void => {
-                Space::None
-            },
+            Atom::Punctuation(ref p) => self.decide(p).0,
+            Atom::Word(_) => Space::Normal,
+            Atom::Void => Space::None,
         }
     }
 
     fn after_atom<'a>(&self, atom: &Atom<'a>) -> Space {
         match atom {
-            Atom::Punctuation(ref p) => {
-                self.decide(p).1
-            },
-            Atom::Word(_) => {
-                Space::Normal
-            },
-            Atom::Void => {
-                Space::None
-            },
+            Atom::Punctuation(ref p) => self.decide(p).1,
+            Atom::Word(_) => Space::Normal,
+            Atom::Void => Space::None,
         }
     }
 }
@@ -87,7 +74,7 @@ impl Typography for French {
             Mark::Comma => ",",
             Mark::Point => ".",
             Mark::Apostrophe => "’",
-            Mark::SuspensionPoints => "…" ,
+            Mark::SuspensionPoints => "…",
         }
     }
 
@@ -145,7 +132,7 @@ impl Typography for English {
             Mark::Comma => ",",
             Mark::Point => ".",
             Mark::Apostrophe => "’",
-            Mark::SuspensionPoints => "…" ,
+            Mark::SuspensionPoints => "…",
         }
     }
 

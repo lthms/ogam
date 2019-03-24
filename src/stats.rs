@@ -1,6 +1,6 @@
-use ::generator::Renderer;
-use ::typography::Space;
+use generator::Renderer;
 use std::collections::HashSet;
+use typography::Space;
 
 pub struct Stats;
 
@@ -8,12 +8,12 @@ pub struct Digest<'input> {
     pub words_count: usize,
     pub signs_count: usize,
     pub spaces_count: usize,
-    pub characters: HashSet<&'input str>
+    pub characters: HashSet<&'input str>,
 }
 
 pub fn join<'input>(
     set1: HashSet<&'input str>,
-    set2: HashSet<&'input str>
+    set2: HashSet<&'input str>,
 ) -> HashSet<&'input str> {
     if set2.is_empty() {
         set1
@@ -85,11 +85,19 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         format
     }
 
-    fn reply_template(&self, reply: Digest<'input>, _author: &Option<&'input str>) -> Digest<'input> {
+    fn reply_template(
+        &self,
+        reply: Digest<'input>,
+        _author: &Option<&'input str>,
+    ) -> Digest<'input> {
         reply
     }
 
-    fn thought_template(&self, reply: Digest<'input>, author: &Option<&'input str>) -> Digest<'input> {
+    fn thought_template(
+        &self,
+        reply: Digest<'input>,
+        author: &Option<&'input str>,
+    ) -> Digest<'input> {
         let mut reply = reply;
         if let Some(author) = author {
             reply.characters.insert(author);
@@ -98,7 +106,11 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         reply
     }
 
-    fn dialogue_template(&self, reply: Digest<'input>, author: &Option<&'input str>) -> Digest<'input> {
+    fn dialogue_template(
+        &self,
+        reply: Digest<'input>,
+        author: &Option<&'input str>,
+    ) -> Digest<'input> {
         let mut reply = reply;
         if let Some(author) = author {
             reply.characters.insert(author);

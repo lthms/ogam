@@ -27,13 +27,17 @@ pub enum Format<'input> {
     Raw(Vec<Atom<'input>>),
     Emph(Vec<Format<'input>>),
     StrongEmph(Vec<Format<'input>>),
-    Quote(Vec<Format<'input>>)
+    Quote(Vec<Format<'input>>),
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Reply<'input> {
     Simple(Vec<Format<'input>>),
-    WithSay(Vec<Format<'input>>, Vec<Format<'input>>, Option<Vec<Format<'input>>>)
+    WithSay(
+        Vec<Format<'input>>,
+        Vec<Format<'input>>,
+        Option<Vec<Format<'input>>>,
+    ),
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -41,7 +45,7 @@ pub enum Component<'input> {
     Teller(Vec<Format<'input>>),
     Dialogue(Reply<'input>, Option<&'input str>),
     Thought(Reply<'input>, Option<&'input str>),
-    IllFormed(&'input str)
+    IllFormed(&'input str),
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -51,7 +55,7 @@ pub struct Paragraph<'input>(pub Vec<Component<'input>>);
 pub enum Section<'input> {
     Story(Vec<Paragraph<'input>>),
     Aside(Option<&'input str>, Vec<Paragraph<'input>>),
-    IllFormed(Vec<&'input str>)
+    IllFormed(Vec<&'input str>),
 }
 
 #[derive(PartialEq, Eq, Debug)]
