@@ -1,0 +1,14 @@
+image: archlinux
+packages:
+  - rustup
+sources:
+  - https://git.sr.ht/~lthms/ogmarkup
+tasks:
+  - setup: |
+      rustup default stable
+      rustup component add rustfmt
+  - build: |
+      cd ogmarkup
+      cargo build
+      cargo test
+      cargo fmt -- --check
