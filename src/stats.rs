@@ -2,6 +2,9 @@ use generator::Renderer;
 use std::collections::HashSet;
 use typography::Space;
 
+use std::default::Default;
+use std::hash::BuildHasher;
+
 pub struct Stats;
 
 pub struct Digest<'input> {
@@ -11,10 +14,10 @@ pub struct Digest<'input> {
     pub characters: HashSet<&'input str>,
 }
 
-pub fn join<'input>(
-    set1: HashSet<&'input str>,
-    set2: HashSet<&'input str>,
-) -> HashSet<&'input str> {
+pub fn join<'input, S: BuildHasher + Default>(
+    set1: HashSet<&'input str, S>,
+    set2: HashSet<&'input str, S>,
+) -> HashSet<&'input str, S> {
     if set2.is_empty() {
         set1
     } else if set1.is_empty() {

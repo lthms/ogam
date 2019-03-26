@@ -720,7 +720,7 @@ pub enum Error<'input> {
     ParsingError,
 }
 
-pub fn parse<'input>(input: &'input str) -> Result<Document<'input>, Error<'input>> {
+pub fn parse(input: &str) -> Result<Document, Error> {
     match document(input) {
         Ok(("", res)) => Ok(res),
         Ok((rest, res)) => Err(Error::IncompleteParsing(res, rest)),

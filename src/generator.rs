@@ -161,22 +161,22 @@ impl<'ast, 'input: 'ast> Reply<'input> {
             Reply::Simple(atoms) => {
                 let o1 = open
                     .map(|x| x.render(typo, renderer, mem))
-                    .unwrap_or(renderer.empty());
+                    .unwrap_or_else(|| renderer.empty());
                 let o2 = renderer.reply_template(atoms.render(typo, renderer, mem), author);
                 let o3 = close
                     .map(|x| x.render(typo, renderer, mem))
-                    .unwrap_or(renderer.empty());
+                    .unwrap_or_else(|| renderer.empty());
 
                 renderer.append(o1, renderer.append(o2, o3))
             }
             Reply::WithSay(atoms, insert, None) => {
                 let o1 = open
                     .map(|x| x.render(typo, renderer, mem))
-                    .unwrap_or(renderer.empty());
+                    .unwrap_or_else(|| renderer.empty());
                 let o2 = renderer.reply_template(atoms.render(typo, renderer, mem), author);
                 let o3 = close
                     .map(|x| x.render(typo, renderer, mem))
-                    .unwrap_or(renderer.empty());
+                    .unwrap_or_else(|| renderer.empty());
                 let o4 = insert.render(typo, renderer, mem);
 
                 renderer.append(o1, renderer.append(o2, renderer.append(o3, o4)))
@@ -184,13 +184,13 @@ impl<'ast, 'input: 'ast> Reply<'input> {
             Reply::WithSay(atoms1, insert, Some(atoms2)) => {
                 let o1 = open
                     .map(|x| x.render(typo, renderer, mem))
-                    .unwrap_or(renderer.empty());
+                    .unwrap_or_else(|| renderer.empty());
                 let o2 = renderer.reply_template(atoms1.render(typo, renderer, mem), author);
                 let o3 = insert.render(typo, renderer, mem);
                 let o4 = renderer.reply_template(atoms2.render(typo, renderer, mem), author);
                 let o5 = close
                     .map(|x| x.render(typo, renderer, mem))
-                    .unwrap_or(renderer.empty());
+                    .unwrap_or_else(|| renderer.empty());
 
                 renderer.append(
                     o1,
@@ -281,7 +281,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
 }
 
 fn render_paragraphs<'ast, 'input: 'ast, O, T: Typography, R: Renderer<'input, O>>(
-    ast: &'ast Vec<Paragraph<'input>>,
+    ast: &'ast [Paragraph<'input>],
     typo: &T,
     renderer: &R,
     mem: &mut Memory<'ast, 'input>,
