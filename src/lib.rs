@@ -605,12 +605,43 @@ I love you."#
 
 named!(
     document<&str, Document>, do_parse!(
-      blank >>
+      opt!(complete!(blank)) >>
       many0!(complete!(empty_line)) >>
       x: some!(section) >>
-      (Document(x))
+      (
+          // This is a special treatment for dealing with an empty document.
+          if x.len() == 1 && x[0] == Section::IllFormed(vec![""]) {
+              Document(vec![])
+          } else {
+              Document(x)
+          }
+      )
     )
 );
+
+#[test]
+fn test_empty_document() {
+    assert_eq!(document(""), Ok(("", Document(vec![]))));
+}
+
+#[test]
+fn test_document_with_leading_ws() {
+    assert_eq!(
+        document("   \n  \n She opened the letter."),
+        Ok((
+            "",
+            Document(vec![Section::Story(vec![Paragraph(vec![
+                Component::Teller(vec![Format::Raw(vec![
+                    Atom::Word("She"),
+                    Atom::Word("opened"),
+                    Atom::Word("the"),
+                    Atom::Word("letter"),
+                    Atom::Punctuation(Mark::Point),
+                ])])
+            ])])])
+        ))
+    );
+}
 
 #[test]
 fn test_document() {
