@@ -1,5 +1,5 @@
 use ast::*;
-use typography::{choose, Space, Typography};
+use typography::{choose, previous_dialogue, Space, Typography};
 
 pub trait Renderer<'input, O> {
     fn append(&self, O, O) -> O;
@@ -37,7 +37,7 @@ pub trait Renderer<'input, O> {
 
 struct Memory<'ast, 'input: 'ast> {
     atom: &'ast Atom<'input>,
-    was_dialogue: bool,
+    was_dialogue: Option<Option<&'input str>>,
     next_paragraph_starts_with_dialogue: bool,
 }
 
@@ -45,7 +45,7 @@ impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
     fn init() -> Self {
         Memory {
             atom: &Atom::Void,
-            was_dialogue: false,
+            was_dialogue: None,
             next_paragraph_starts_with_dialogue: false,
         }
     }
@@ -58,13 +58,13 @@ impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
         self.atom = &Atom::Void;
     }
 
-    fn remember_dialogue(&mut self, dial: bool) {
+    fn remember_dialogue(&mut self, dial: Option<Option<&'input str>>) {
         self.was_dialogue = dial;
     }
 
     fn reset(&mut self) {
         self.reset_atom();
-        self.was_dialogue = false;
+        self.was_dialogue = None;
         self.next_paragraph_starts_with_dialogue = false;
     }
 }
@@ -202,10 +202,10 @@ impl<'ast, 'input: 'ast> Reply<'input> {
 }
 
 impl<'ast, 'input: 'ast> Component<'input> {
-    fn is_dialog(&self) -> bool {
+    fn is_dialog(&self) -> Option<Option<&'input str>> {
         match self {
-            Component::Dialogue(_, _) => true,
-            _ => false,
+            Component::Dialogue(_, author) => Some(*author),
+            _ => None,
         }
     }
 
@@ -227,7 +227,8 @@ impl<'ast, 'input: 'ast> Component<'input> {
                 cls,
             ),
             Component::Dialogue(reply, cls) => {
-                let o = typo.open_dialog(mem.was_dialogue);
+                let was_dialogue = previous_dialogue(mem.was_dialogue, *cls);
+                let o = typo.open_dialog(was_dialogue);
                 let e = typo.close_dialog(will_be_dialog);
 
                 let res = renderer
@@ -262,7 +263,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
         for i in 0..self.0.len() {
             let is_last = i + 1 >= self.0.len();
             let will_be_dialogue = if !is_last {
-                self.0[i + 1].is_dialog()
+                self.0[i + 1].is_dialog().is_some()
             } else {
                 mem.next_paragraph_starts_with_dialogue
             };
@@ -290,7 +291,7 @@ fn render_paragraphs<'ast, 'input: 'ast, O, T: Typography, R: Renderer<'input, O
 
     for i in 0..ast.len() {
         mem.next_paragraph_starts_with_dialogue = if i + 1 < ast.len() {
-            ast[i + 1].0[0].is_dialog()
+            ast[i + 1].0[0].is_dialog().is_some()
         } else {
             false
         };
@@ -502,6 +503,70 @@ pub mod test {
                 ]
             ).render_one_shot(&FRENCH, &html),
             "<p><span div=\"dialogue\">«<span div=\"reply\">&nbsp;Salut</span></span></p><p><span div=\"dialogue\">—<span div=\"reply\"> Bonjour</span>&nbsp;»</span></p>"
+        );
+
+        assert_eq!(
+            Paragraph(
+                vec![
+                    Component::Dialogue(
+                        Reply::Simple(
+                            vec![
+                                Format::Raw(
+                                    vec![
+                                        Atom::Word("Salut")
+                                    ]
+                                )
+                            ]
+                        ),
+                        Some("foo")
+                    ),
+                    Component::Dialogue(
+                        Reply::Simple(
+                            vec![
+                                Format::Raw(
+                                    vec![
+                                        Atom::Word("Bonjour")
+                                    ]
+                                )
+                            ]
+                        ),
+                        Some("foo")
+                    )
+                ]
+            ).render_one_shot(&FRENCH, &html),
+            "<p><span div=\"dialogue by-foo\">«<span div=\"reply\">&nbsp;Salut</span></span></p><p><span div=\"dialogue by-foo\">»<span div=\"reply\"> Bonjour</span>&nbsp;»</span></p>"
+        );
+
+        assert_eq!(
+            Paragraph(
+                vec![
+                    Component::Dialogue(
+                        Reply::Simple(
+                            vec![
+                                Format::Raw(
+                                    vec![
+                                        Atom::Word("Salut")
+                                    ]
+                                )
+                            ]
+                        ),
+                        None
+                    ),
+                    Component::Dialogue(
+                        Reply::Simple(
+                            vec![
+                                Format::Raw(
+                                    vec![
+                                        Atom::Word("Bonjour")
+                                    ]
+                                )
+                            ]
+                        ),
+                        Some("foo")
+                    )
+                ]
+            ).render_one_shot(&FRENCH, &html),
+            "<p><span div=\"dialogue\">«<span div=\"reply\">&nbsp;Salut</span></span></p><p><span div=\"dialogue by-foo\">—<span div=\"reply\"> Bonjour</span>&nbsp;»</span></p>"
         );
     }
 }

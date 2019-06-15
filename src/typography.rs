@@ -16,10 +16,32 @@ pub fn choose(s1: Space, s2: Space) -> Space {
     }
 }
 
+pub enum PreviousDialogue {
+    SameCharacter,
+    OtherCharacter,
+    NoDialogue,
+}
+
+pub fn previous_dialogue(before: Option<Option<&str>>, now: Option<&str>) -> PreviousDialogue {
+    match (before, now) {
+        (None, _) => PreviousDialogue::NoDialogue,
+        (Some(None), _) => PreviousDialogue::OtherCharacter,
+        (Some(Some(b)), n) => n
+            .map(|n| b == n)
+            .map_or(PreviousDialogue::OtherCharacter, |eq| {
+                if eq {
+                    PreviousDialogue::SameCharacter
+                } else {
+                    PreviousDialogue::OtherCharacter
+                }
+            }),
+    }
+}
+
 pub trait Typography {
     fn decide(&self, &Mark) -> (Space, Space);
     fn output(&self, &Mark) -> &'static str;
-    fn open_dialog(&self, bool) -> Option<&'static Atom<'static>>;
+    fn open_dialog(&self, PreviousDialogue) -> Option<&'static Atom<'static>>;
     fn close_dialog(&self, bool) -> Option<&'static Atom<'static>>;
 
     fn before_atom<'a>(&self, atom: &Atom<'a>) -> Space {
@@ -78,11 +100,11 @@ impl Typography for French {
         }
     }
 
-    fn open_dialog(&self, before: bool) -> Option<&'static Atom<'static>> {
-        if before {
-            Some(&Atom::Punctuation(Mark::LongDash))
-        } else {
-            Some(&Atom::Punctuation(Mark::OpenQuote))
+    fn open_dialog(&self, before: PreviousDialogue) -> Option<&'static Atom<'static>> {
+        match before {
+            PreviousDialogue::NoDialogue => Some(&Atom::Punctuation(Mark::OpenQuote)),
+            PreviousDialogue::OtherCharacter => Some(&Atom::Punctuation(Mark::LongDash)),
+            PreviousDialogue::SameCharacter => Some(&Atom::Punctuation(Mark::CloseQuote)),
         }
     }
 
@@ -136,8 +158,12 @@ impl Typography for English {
         }
     }
 
-    fn open_dialog(&self, _before: bool) -> Option<&'static Atom<'static>> {
-        Some(&Atom::Punctuation(Mark::OpenQuote))
+    fn open_dialog(&self, before: PreviousDialogue) -> Option<&'static Atom<'static>> {
+        match before {
+            PreviousDialogue::NoDialogue => Some(&Atom::Punctuation(Mark::OpenQuote)),
+            PreviousDialogue::OtherCharacter => Some(&Atom::Punctuation(Mark::OpenQuote)),
+            PreviousDialogue::SameCharacter => None,
+        }
     }
 
     fn close_dialog(&self, _after: bool) -> Option<&'static Atom<'static>> {
