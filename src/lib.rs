@@ -499,7 +499,7 @@ Recover!"#
 named!(
     section<&str, Section>, do_parse!(
     res: alt!(
-        do_parse!(
+        complete!(do_parse!(
             some!(char!('_')) >>
             cls: opt!(
                     do_parse!(
@@ -512,7 +512,7 @@ named!(
             sec: some!(paragraph) >>
             some!(char!('_')) >>
             (Section::Aside(cls, sec))
-        )
+        ))
       | do_parse!(
           opt!(do_parse!(some!(char!('=')) >> some!(empty_line) >> (()))) >>
           r: map!(some!(paragraph), Section::Story) >>
@@ -639,6 +639,17 @@ fn test_document_with_leading_ws() {
                     Atom::Punctuation(Mark::Point),
                 ])])
             ])])])
+        ))
+    );
+}
+
+#[test]
+fn test_incomplete_aside() {
+    assert_eq!(
+        document("________________"),
+        Ok((
+            "",
+            Document(vec![Section::IllFormed(vec!["________________"])])
         ))
     );
 }
