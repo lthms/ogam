@@ -17,8 +17,17 @@ pub use generator::render;
 use generator::Renderer;
 use typography::Typography;
 
+use nom::character::streaming::{alphanumeric1, anychar};
+
 const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t   ";
 
+macro_rules! cond_reduce (
+    ($input:expr, $cond:expr, $sub:ident!( $($args:tt)* )) => (
+        map_opt!($input, cond!($cond, $sub!($($args)*)), |x| x)
+    );
+);
+
+/// Synonym to `many1!(complete!(x))`
 macro_rules! some (
     ($input:expr, $sub:ident!( $($args:tt)* )) => (
         many1!($input, complete!($sub!($($args)*)))
@@ -28,41 +37,38 @@ macro_rules! some (
     );
 );
 
+/// `consume_until!(x)` will consume the input according to the following rules:
+/// 1. at least one character
+/// 2.a. until it finds one character that belongs to $arr, or
+/// 2.b. until it reaches the end of the input
 macro_rules! consume_until (
-  ($input:expr, $arr:expr) => (
-    {
-      use nom::lib::std::result::Result::*;
-      use nom::lib::std::option::Option::*;
-      use nom::{Err,IResult,ErrorKind};
+    ($input:expr, $arr:expr) => (
+        {
+            use nom::Err;
+            use nom::error::ErrorKind;
 
-      use nom::InputIter;
-      use nom::InputTake;
-      use nom::FindToken;
-
-      let res: IResult<_,_> = match $input.position(|c| {
-        $arr.find_token(c)
-      }) {
-        Some(0) => Err(Err::Error(error_position!($input, ErrorKind::TakeUntilEither::<u32>))),
-        Some(n) => {
-          Ok($input.take_split(n))
-        },
-        None    => {
-          Ok($input.take_split($input.len()))
+            match take_till1!($input, |c| $arr.contains(c)) {
+                Err(Err::Incomplete(_)) => if $input.len() != 0 {
+                    call!($input, nom::combinator::rest)
+                } else {
+                    Err(Err::Error(error_position!($input, ErrorKind::TakeUntil)))
+                },
+                Ok((i, o)) => Ok((i, o)),
+                Err(e) => Err(e)
+            }
         }
-      };
-      res
-    }
-  );
+    );
 );
 
+/// `recover_incomplete!(f)` will fail only if `f` fails due to something else
+/// than an incomplete stream.
 macro_rules! recover_incomplete (
     ($i:expr, $submac:ident!( $($args:tt)* )) => (
         {
             use nom::lib::std::result::Result::*;
             use nom::Err;
 
-            let i_ = $i.clone();
-            match $submac!(i_, $($args)*) {
+            match $submac!($i, $($args)*) {
                 Err(Err::Incomplete(_)) =>  {
                     Ok(("", ()))
                 },
@@ -72,9 +78,6 @@ macro_rules! recover_incomplete (
                 Err(rest) => Err(rest)
             }
         }
-    );
-    ($i:expr, $f:expr) => (
-        complete!($i, call!($f));
     );
 );
 
@@ -257,7 +260,7 @@ named_args!(reply(b: char, e: char)<&str, Reply>, do_parse!(
     char!(b)  >>
     call!(white_spaces) >>
     before: some!(format) >>
-    x: call!(nom::anychar) >>
+    x: call!(anychar) >>
     r: alt!( cond_reduce!(x == e, do_parse!((None)))
            | cond_reduce!(x == '|', do_parse!(
                call!(white_spaces) >>
@@ -321,7 +324,7 @@ fn test_reply() {
 // eating the whitespaces before him, so if we do add blank to Teller as well,
 // then this means two newlines are consumed when a Teller component follows a
 // Dialogue for instance.
-named!(component<&str, Component>, alt_complete! (
+named!(component<&str, Component>, alt! (
             do_parse!(
               tel: some!(format) >>
               (Component::Teller(tel)))
@@ -330,7 +333,7 @@ named!(component<&str, Component>, alt_complete! (
               dial: call!(reply, '[' , ']') >>
               by: opt!(complete!(do_parse!(
                      char!('(') >>
-                     name: call!(nom::alphanumeric1) >>
+                     name: call!(alphanumeric1) >>
                      char!(')') >>
                      white_spaces >>
                      (name)))) >>
@@ -340,7 +343,7 @@ named!(component<&str, Component>, alt_complete! (
               th: call!(reply, '<' , '>') >>
               by: opt!(complete!(do_parse!(
                      char!('(') >>
-                     name: call!(nom::alphanumeric1) >>
+                     name: call!(alphanumeric1) >>
                      char!(')') >>
                      white_spaces >>
                      (name)))) >>
@@ -410,8 +413,8 @@ fn test_component() {
     );
 
     assert_eq!(
-        component("[Hi \ntest"),
-        Ok(("\ntest", Component::IllFormed("[Hi ")))
+        component("[Hi \ntest\n\n"),
+        Ok(("\ntest\n\n", Component::IllFormed("[Hi ")))
     );
 }
 
@@ -434,6 +437,16 @@ named!(
 
 #[test]
 fn test_paragraph() {
+    assert_eq!(
+        paragraph("+Hi+"),
+        Ok((
+            "",
+            Paragraph(vec![Component::Teller(vec![Format::StrongEmph(vec![
+                Format::Raw(vec![Atom::Word("Hi")]),
+            ])])])
+        ))
+    );
+
     assert_eq!(
         paragraph("[Hi stranger, this is me.] Indeed.\n\n[Hi]"),
         Ok((
@@ -465,7 +478,8 @@ named_args!(
     alt!(
         map!(some!(empty_line), |_| ())
       | do_parse!(
-          map!(consume_until!("\n"), |l| acc.push(l)) >>
+          l: consume_until!("\n") >>
+          do_parse!(({ acc.push(l) })) >>
           char!('\n') >>
           call!(search_recovery_point_rec, acc) >>
           (())
@@ -503,7 +517,7 @@ named!(
             some!(char!('_')) >>
             cls: opt!(
                     do_parse!(
-                        cls: call!(nom::alphanumeric1) >>
+                        cls: call!(alphanumeric1) >>
                         some!(char!('_')) >>
                         (cls)
                     )
@@ -518,7 +532,7 @@ named!(
           r: map!(some!(paragraph), Section::Story) >>
           (r)
         )
-      | map!(search_recovery_point, Section::IllFormed)
+      | map_opt!(search_recovery_point, |x: Vec<_>| if !x.is_empty() { Some(Section::IllFormed(x)) } else { None } )
     ) >>
     many0!(complete!(empty_line)) >>
     (res)
@@ -526,6 +540,8 @@ named!(
 
 #[test]
 fn test_section() {
+    assert!(section("").is_err());
+
     assert_eq!(
         section("+\nHi  \n +"),
         Ok((
@@ -607,15 +623,8 @@ named!(
     document<&str, Document>, do_parse!(
       opt!(complete!(blank)) >>
       many0!(complete!(empty_line)) >>
-      x: some!(section) >>
-      (
-          // This is a special treatment for dealing with an empty document.
-          if x.len() == 1 && x[0] == Section::IllFormed(vec![""]) {
-              Document(vec![])
-          } else {
-              Document(x)
-          }
-      )
+      x: many0!(section) >>
+      (Document(x))
     )
 );
 

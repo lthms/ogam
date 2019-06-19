@@ -8,7 +8,7 @@ default = []
 html = ["maud"]
 
 [dependencies]
-nom = "4.2"
+nom = "5.0.0"
 
 [dependencies.maud]
 version = "0.20"
