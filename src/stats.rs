@@ -1,4 +1,4 @@
-use generator::Renderer;
+use generator::Output;
 use std::collections::HashSet;
 use typography::Space;
 
@@ -11,27 +11,8 @@ pub struct Digest {
     pub characters: HashSet<String>,
 }
 
-fn join(set1: HashSet<String>, set2: HashSet<String>) -> HashSet<String> {
-    if set2.is_empty() {
-        set1
-    } else if set1.is_empty() {
-        set2
-    } else {
-        set1.union(&set2).cloned().collect()
-    }
-}
-
-impl Renderer<Digest> for Stats {
-    fn append(&self, d1: Digest, d2: Digest) -> Digest {
-        Digest {
-            words_count: d1.words_count + d2.words_count,
-            signs_count: d1.signs_count + d2.signs_count,
-            spaces_count: d1.spaces_count + d2.spaces_count,
-            characters: join(d1.characters, d2.characters),
-        }
-    }
-
-    fn empty(&self) -> Digest {
+impl Output for Digest {
+    fn empty(_: usize) -> Digest {
         Digest {
             words_count: 0,
             signs_count: 0,
@@ -40,91 +21,98 @@ impl Renderer<Digest> for Stats {
         }
     }
 
-    fn render_space(&self, space: Space) -> Digest {
-        Digest {
-            words_count: 0,
-            signs_count: 0,
-            spaces_count: match space {
-                Space::None => 0,
-                _ => 1,
-            },
-            characters: HashSet::new(),
+    fn render_space(&mut self, space: Space) -> () {
+        match space {
+            Space::None => (),
+            _ => {
+                self.spaces_count += 1;
+            }
         }
     }
 
-    fn render_word(&self, _word: &str) -> Digest {
-        Digest {
-            words_count: 1,
-            signs_count: 0,
-            spaces_count: 0,
-            characters: HashSet::new(),
-        }
+    fn render_word(&mut self, _word: &str) -> () {
+        self.words_count += 1;
     }
 
-    fn render_mark(&self, _mark: &str) -> Digest {
-        Digest {
-            words_count: 0,
-            signs_count: 1,
-            spaces_count: 0,
-            characters: HashSet::new(),
-        }
+    fn render_mark(&mut self, _mark: &str) -> () {
+        self.signs_count += 1;
     }
 
-    fn render_illformed(&self, _err: &str) -> Digest {
-        self.empty()
+    fn render_illformed(&mut self, _err: &str) -> () {}
+
+    fn emph_template<F>(&mut self, format: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        format(self)
     }
 
-    fn emph_template(&self, format: Digest) -> Digest {
-        format
+    fn strong_emph_template<F>(&mut self, format: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        format(self)
     }
 
-    fn strong_emph_template(&self, format: Digest) -> Digest {
-        format
+    fn reply_template<F>(&mut self, reply: F, _author: &Option<&str>) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        reply(self)
     }
 
-    fn reply_template(&self, reply: Digest, _author: &Option<&str>) -> Digest {
-        reply
+    fn thought_template<F>(&mut self, reply: F, author: &Option<&str>) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        // TODO: allocate only if necessary
+        author.map(|a| self.characters.insert(a.to_string()));
+
+        reply(self);
     }
 
-    fn thought_template(&self, reply: Digest, author: &Option<&str>) -> Digest {
-        let mut reply = reply;
-        if let Some(author) = author {
-            reply.characters.insert(author.to_string());
-        }
+    fn dialogue_template<F>(&mut self, reply: F, author: &Option<&str>) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        // TODO: allocate only if necessary
+        author.map(|a| self.characters.insert(a.to_string()));
 
-        reply
+        reply(self);
     }
 
-    fn dialogue_template(&self, reply: Digest, author: &Option<&str>) -> Digest {
-        let mut reply = reply;
-        if let Some(author) = author {
-            reply.characters.insert(author.to_string());
-        }
+    fn between_dialogue(&mut self) -> () {}
 
-        reply
+    fn illformed_inline_template<F>(&mut self, _err: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
     }
 
-    fn between_dialogue(&self) -> Digest {
-        self.empty()
+    fn paragraph_template<F>(&mut self, para: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        para(self);
     }
 
-    fn illformed_inline_template(&self, err: Digest) -> Digest {
-        err
+    fn illformed_block_template<F>(&mut self, _err: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
     }
 
-    fn paragraph_template(&self, para: Digest) -> Digest {
-        para
+    fn story_template<F>(&mut self, story: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        story(self);
     }
 
-    fn illformed_block_template(&self, err: Digest) -> Digest {
-        err
-    }
-
-    fn story_template(&self, err: Digest) -> Digest {
-        err
-    }
-
-    fn aside_template(&self, _cls: &Option<&str>, err: Digest) -> Digest {
-        err
+    fn aside_template<F>(&mut self, _cls: &Option<&str>, aside: F) -> ()
+    where
+        F: FnOnce(&mut Digest) -> (),
+    {
+        aside(self)
     }
 }

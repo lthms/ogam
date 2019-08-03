@@ -14,7 +14,7 @@ pub mod typography;
 
 use ast::*;
 pub use generator::render;
-use generator::Renderer;
+use generator::Output;
 use typography::Typography;
 
 use nom::character::streaming::{alphanumeric1, anychar};
@@ -779,36 +779,32 @@ pub fn parse(input: &str) -> Result<Document, Error> {
     }
 }
 
-pub fn compile<'input, O, T: Typography, R: Renderer<O>>(
+pub fn compile<'input, O: Output, T: Typography>(
     input: &'input str,
     typo: &T,
-    renderer: &R,
 ) -> Result<O, Error<'input>> {
-    Ok(render(&parse(input)?, typo, renderer))
+    let mut out = O::empty(input.len());
+
+    render(&parse(input)?, typo, &mut out);
+
+    Ok(out)
 }
 
 #[test]
 fn test_render() {
-    use stats::Stats;
+    use stats::Digest;
     use typography::ENGLISH;
 
-    assert_eq!(
-        compile(r#"Hi everyone."#, &ENGLISH, &Stats)
-            .unwrap()
-            .words_count,
-        2
-    );
+    let res: Digest = compile(r#"Hi everyone."#, &ENGLISH).unwrap();
 
-    assert_eq!(
-        compile(r#"Hi everyone. +My name is.. Suly+."#, &ENGLISH, &Stats)
-            .unwrap()
-            .signs_count,
-        3
-    );
+    assert_eq!(res.words_count, 2);
 
-    assert_eq!(
-        compile(
-            r#"Hi everyone.
+    let res: Digest = compile(r#"Hi everyone. +My name is.. Suly+."#, &ENGLISH).unwrap();
+
+    assert_eq!(res.signs_count, 3);
+
+    let res: Digest = compile(
+        r#"Hi everyone.
 
  +My name is.. Suly+.
 
@@ -816,17 +812,14 @@ ____test____
 
 What is your name?
 ____________"#,
-            &ENGLISH,
-            &Stats
-        )
-        .unwrap()
-        .spaces_count,
-        7
-    );
+        &ENGLISH,
+    )
+    .unwrap();
 
-    assert_eq!(
-        compile(
-            r#"Hi everyone.
+    assert_eq!(res.spaces_count, 7);
+
+    let res: Digest = compile(
+        r#"Hi everyone.
 
 [+My name is.. Suly+.](john)
 
@@ -838,11 +831,12 @@ ____test____
 
 What is your name?
 ____________"#,
-            &ENGLISH,
-            &Stats
-        )
-        .unwrap()
-        .characters,
+        &ENGLISH,
+    )
+    .unwrap();
+
+    assert_eq!(
+        res.characters,
         [String::from("john"), String::from("merida")]
             .iter()
             .cloned()
