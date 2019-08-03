@@ -779,7 +779,7 @@ pub fn parse(input: &str) -> Result<Document, Error> {
     }
 }
 
-pub fn compile<'input, O, T: Typography, R: Renderer<'input, O>>(
+pub fn compile<'input, O, T: Typography, R: Renderer<O>>(
     input: &'input str,
     typo: &T,
     renderer: &R,
@@ -830,6 +830,10 @@ ____________"#,
 
 [+My name is.. Suly+.](john)
 
+[Really?](merida)
+
+[Yay](john)
+
 ____test____
 
 What is your name?
@@ -839,6 +843,9 @@ ____________"#,
         )
         .unwrap()
         .characters,
-        ["john"].iter().cloned().collect()
+        [String::from("john"), String::from("merida")]
+            .iter()
+            .cloned()
+            .collect()
     );
 }

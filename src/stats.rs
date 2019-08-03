@@ -4,14 +4,14 @@ use typography::Space;
 
 pub struct Stats;
 
-pub struct Digest<'input> {
+pub struct Digest {
     pub words_count: usize,
     pub signs_count: usize,
     pub spaces_count: usize,
-    pub characters: HashSet<&'input str>,
+    pub characters: HashSet<String>,
 }
 
-fn join<'input>(set1: HashSet<&'input str>, set2: HashSet<&'input str>) -> HashSet<&'input str> {
+fn join(set1: HashSet<String>, set2: HashSet<String>) -> HashSet<String> {
     if set2.is_empty() {
         set1
     } else if set1.is_empty() {
@@ -21,8 +21,8 @@ fn join<'input>(set1: HashSet<&'input str>, set2: HashSet<&'input str>) -> HashS
     }
 }
 
-impl<'input> Renderer<'input, Digest<'input>> for Stats {
-    fn append(&self, d1: Digest<'input>, d2: Digest<'input>) -> Digest<'input> {
+impl Renderer<Digest> for Stats {
+    fn append(&self, d1: Digest, d2: Digest) -> Digest {
         Digest {
             words_count: d1.words_count + d2.words_count,
             signs_count: d1.signs_count + d2.signs_count,
@@ -31,7 +31,7 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         }
     }
 
-    fn empty(&self) -> Digest<'input> {
+    fn empty(&self) -> Digest {
         Digest {
             words_count: 0,
             signs_count: 0,
@@ -40,7 +40,7 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         }
     }
 
-    fn render_space(&self, space: Space) -> Digest<'input> {
+    fn render_space(&self, space: Space) -> Digest {
         Digest {
             words_count: 0,
             signs_count: 0,
@@ -52,7 +52,7 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         }
     }
 
-    fn render_word(&self, _word: &'input str) -> Digest<'input> {
+    fn render_word(&self, _word: &str) -> Digest {
         Digest {
             words_count: 1,
             signs_count: 0,
@@ -61,7 +61,7 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         }
     }
 
-    fn render_mark(&self, _mark: &'input str) -> Digest<'input> {
+    fn render_mark(&self, _mark: &str) -> Digest {
         Digest {
             words_count: 0,
             signs_count: 1,
@@ -70,73 +70,61 @@ impl<'input> Renderer<'input, Digest<'input>> for Stats {
         }
     }
 
-    fn render_illformed(&self, _err: &'input str) -> Digest<'input> {
+    fn render_illformed(&self, _err: &str) -> Digest {
         self.empty()
     }
 
-    fn emph_template(&self, format: Digest<'input>) -> Digest<'input> {
+    fn emph_template(&self, format: Digest) -> Digest {
         format
     }
 
-    fn strong_emph_template(&self, format: Digest<'input>) -> Digest<'input> {
+    fn strong_emph_template(&self, format: Digest) -> Digest {
         format
     }
 
-    fn reply_template(
-        &self,
-        reply: Digest<'input>,
-        _author: &Option<&'input str>,
-    ) -> Digest<'input> {
+    fn reply_template(&self, reply: Digest, _author: &Option<&str>) -> Digest {
         reply
     }
 
-    fn thought_template(
-        &self,
-        reply: Digest<'input>,
-        author: &Option<&'input str>,
-    ) -> Digest<'input> {
+    fn thought_template(&self, reply: Digest, author: &Option<&str>) -> Digest {
         let mut reply = reply;
         if let Some(author) = author {
-            reply.characters.insert(author);
+            reply.characters.insert(author.to_string());
         }
 
         reply
     }
 
-    fn dialogue_template(
-        &self,
-        reply: Digest<'input>,
-        author: &Option<&'input str>,
-    ) -> Digest<'input> {
+    fn dialogue_template(&self, reply: Digest, author: &Option<&str>) -> Digest {
         let mut reply = reply;
         if let Some(author) = author {
-            reply.characters.insert(author);
+            reply.characters.insert(author.to_string());
         }
 
         reply
     }
 
-    fn between_dialogue(&self) -> Digest<'input> {
+    fn between_dialogue(&self) -> Digest {
         self.empty()
     }
 
-    fn illformed_inline_template(&self, err: Digest<'input>) -> Digest<'input> {
+    fn illformed_inline_template(&self, err: Digest) -> Digest {
         err
     }
 
-    fn paragraph_template(&self, para: Digest<'input>) -> Digest<'input> {
+    fn paragraph_template(&self, para: Digest) -> Digest {
         para
     }
 
-    fn illformed_block_template(&self, err: Digest<'input>) -> Digest<'input> {
+    fn illformed_block_template(&self, err: Digest) -> Digest {
         err
     }
 
-    fn story_template(&self, err: Digest<'input>) -> Digest<'input> {
+    fn story_template(&self, err: Digest) -> Digest {
         err
     }
 
-    fn aside_template(&self, _cls: &Option<&'input str>, err: Digest<'input>) -> Digest<'input> {
+    fn aside_template(&self, _cls: &Option<&str>, err: Digest) -> Digest {
         err
     }
 }
