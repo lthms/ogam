@@ -51,7 +51,7 @@ pub trait Output {
     where
         F: FnOnce(&mut Self) -> ();
 
-    fn render_atom<T: Typography>(&mut self, atom: &Atom, typo: &T) -> () {
+    fn render_atom<T: Typography + ?Sized>(&mut self, atom: &Atom, typo: &T) -> () {
         match atom {
             Atom::Punctuation(ref p) => self.render_mark(typo.output(p)),
             Atom::Word(w) => self.render_word(w),
@@ -95,20 +95,20 @@ impl<'ast, 'input: 'ast> Memory<'ast, 'input> {
 }
 
 trait Renderable<'ast, 'input: 'ast> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
         mem: &mut Memory<'ast, 'input>,
     ) -> ();
 
-    fn render_one_shot<O: Output, T: Typography>(&'ast self, typo: &T, out: &mut O) -> () {
+    fn render_one_shot<O: Output, T: Typography + ?Sized>(&'ast self, typo: &T, out: &mut O) -> () {
         self.render(typo, out, &mut Memory::init())
     }
 }
 
 impl<'ast, 'input: 'ast, A: Renderable<'ast, 'input>> Renderable<'ast, 'input> for Vec<A> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -121,7 +121,7 @@ impl<'ast, 'input: 'ast, A: Renderable<'ast, 'input>> Renderable<'ast, 'input> f
 }
 
 impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Atom<'input> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -138,7 +138,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Atom<'input> {
 }
 
 impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Format<'input> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -160,7 +160,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Format<'input> {
 }
 
 impl<'ast, 'input: 'ast> Reply<'input> {
-    fn render_reply<O: Output, T: Typography>(
+    fn render_reply<O: Output, T: Typography + ?Sized>(
         &'ast self,
         author: &Option<&'input str>,
         typo: &T,
@@ -200,7 +200,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
         }
     }
 
-    fn render_component<O: Output, T: Typography>(
+    fn render_component<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -237,7 +237,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
 }
 
 impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -261,7 +261,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Paragraph<'input> {
     }
 }
 
-fn render_paragraphs<'ast, 'input: 'ast, O: Output, T: Typography>(
+fn render_paragraphs<'ast, 'input: 'ast, O: Output, T: Typography + ?Sized>(
     ast: &'ast [Paragraph<'input>],
     typo: &T,
     out: &mut O,
@@ -279,7 +279,7 @@ fn render_paragraphs<'ast, 'input: 'ast, O: Output, T: Typography>(
 }
 
 impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Section<'input> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -306,7 +306,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Section<'input> {
 }
 
 impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Document<'input> {
-    fn render<O: Output, T: Typography>(
+    fn render<O: Output, T: Typography + ?Sized>(
         &'ast self,
         typo: &T,
         out: &mut O,
@@ -318,7 +318,7 @@ impl<'ast, 'input: 'ast> Renderable<'ast, 'input> for Document<'input> {
     }
 }
 
-pub fn render<'ast, 'input: 'ast, O: Output, T: Typography>(
+pub fn render<'ast, 'input: 'ast, O: Output, T: Typography + ?Sized>(
     doc: &'ast Document<'input>,
     typo: &T,
     out: &mut O,

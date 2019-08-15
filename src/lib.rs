@@ -779,7 +779,7 @@ pub fn parse(input: &str) -> Result<Document, Error> {
     }
 }
 
-pub fn compile<'input, O: Output, T: Typography>(
+pub fn compile<'input, O: Output, T: Typography + ?Sized>(
     input: &'input str,
     typo: &T,
 ) -> Result<O, Error<'input>> {
