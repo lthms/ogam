@@ -1,7 +1,12 @@
 [package]
 name = "ogmarkup"
-version = "0.1.0"
-authors = ["Thomas Letan <contact@thomasletan.fr>"]
+version = "0.99.0"
+authors = ["Thomas Letan <lthms@soap.coffee>"]
+license-file = "LICENSE"
+keywords = ["parser", "markup"]
+repository = "https://code.soap.coffee/ogmios/ogmarkup.git/"
+readme = "README.md"
+description = "A markup language for story writers"
 
 [features]
 default = []
@@ -13,3 +18,10 @@ nom = "5.0.0"
 [dependencies.maud]
 version = "0.20"
 optional = true
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "amours_de_jeunesse"
+harness = false
