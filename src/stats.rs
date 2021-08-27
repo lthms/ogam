@@ -14,9 +14,9 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use generator::Output;
+use crate::generator::Output;
+use crate::typography::Space;
 use std::collections::HashSet;
-use typography::Space;
 
 pub struct Stats;
 

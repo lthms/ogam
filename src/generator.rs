@@ -14,8 +14,8 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use ast::*;
-use typography::{choose, previous_dialogue, Space, Typography};
+use crate::ast::*;
+use crate::typography::{choose, previous_dialogue, Space, Typography};
 
 pub trait Output {
     fn empty(input_size: usize) -> Self;
@@ -346,7 +346,7 @@ pub fn render<'ast, 'input: 'ast, O: Output, T: Typography + ?Sized>(
 pub mod test {
     use super::*;
 
-    use typography::FRENCH;
+    use crate::typography::FRENCH;
 
     #[derive(Debug, PartialEq, Eq)]
     struct Html(String);

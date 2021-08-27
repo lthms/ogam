@@ -14,7 +14,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use ast::{Atom, Mark};
+use crate::ast::{Atom, Mark};
 
 pub enum Space {
     Normal,
@@ -55,10 +55,10 @@ pub fn previous_dialogue(before: Option<Option<&str>>, now: Option<&str>) -> Pre
 }
 
 pub trait Typography {
-    fn decide(&self, &Mark) -> (Space, Space);
-    fn output(&self, &Mark) -> &'static str;
-    fn open_dialog(&self, PreviousDialogue) -> Option<&'static Atom<'static>>;
-    fn close_dialog(&self, bool) -> Option<&'static Atom<'static>>;
+    fn decide(&self, mark: &Mark) -> (Space, Space);
+    fn output(&self, mark: &Mark) -> &'static str;
+    fn open_dialog(&self, before: PreviousDialogue) -> Option<&'static Atom<'static>>;
+    fn close_dialog(&self, last: bool) -> Option<&'static Atom<'static>>;
 
     fn before_atom<'a>(&self, atom: &Atom<'a>) -> Space {
         match atom {

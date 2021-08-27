@@ -28,10 +28,10 @@ pub mod html;
 pub mod stats;
 pub mod typography;
 
-use ast::*;
-pub use generator::render;
-use generator::Output;
-use typography::Typography;
+use crate::ast::*;
+pub use crate::generator::render;
+use crate::generator::Output;
+use crate::typography::Typography;
 
 use nom::branch::alt;
 use nom::bytes::streaming::{tag, take_till1, take_until, take_while};
