@@ -33,170 +33,211 @@ pub use generator::render;
 use generator::Output;
 use typography::Typography;
 
-use nom::character::streaming::{alphanumeric1, anychar};
+use nom::branch::alt;
+use nom::bytes::streaming::{tag, take_till1, take_until, take_while};
+use nom::character::streaming::{alphanumeric1, anychar, char, one_of};
+use nom::combinator::{complete, cond, map_opt, not, opt, peek, rest, success};
+use nom::error::{ErrorKind, ParseError};
+use nom::multi::{many0, many1};
+use nom::sequence::{delimited, preceded};
+use nom::{Err, IResult, InputLength, Parser};
 
 const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t   ";
 
-macro_rules! cond_reduce (
-    ($input:expr, $cond:expr, $sub:ident!( $($args:tt)* )) => (
-        map_opt!($input, cond!($cond, $sub!($($args)*)), |x| x)
-    );
-);
+/// Call the parser if the condition is met, fails otherwise.
+fn cond_reduce<I, O, E, F>(c: bool, p: F) -> impl FnMut(I) -> IResult<I, O, E>
+where
+    I: Clone,
+    F: Parser<I, O, E>,
+    E: ParseError<I>,
+{
+    map_opt(cond(c, p), |x| x)
+}
 
-/// Synonym to `many1!(complete!(x))`
-macro_rules! some (
-    ($input:expr, $sub:ident!( $($args:tt)* )) => (
-        many1!($input, complete!($sub!($($args)*)))
-    );
-    ($input:expr, $f:expr) => (
-        some!($input, call!($f))
-    );
-);
+/// Synonym to `many1(complete(i))`
+fn some<I, O, E, F>(p: F) -> impl FnMut(I) -> IResult<I, Vec<O>, E>
+where
+    I: InputLength + Clone,
+    F: Parser<I, O, E>,
+    E: ParseError<I>,
+{
+    many1(complete(p))
+}
 
 /// `consume_until!(x)` will consume the input according to the following rules:
 /// 1. at least one character
 /// 2.a. until it finds one character that belongs to $arr, or
 /// 2.b. until it reaches the end of the input
-macro_rules! consume_until (
-    ($input:expr, $arr:expr) => (
-        {
-            use nom::Err;
-            use nom::error::ErrorKind;
-
-            match take_till1!($input, |c| $arr.contains(c)) {
-                Err(Err::Incomplete(_)) => if $input.len() != 0 {
-                    call!($input, nom::combinator::rest)
-                } else {
-                    Err(Err::Error(error_position!($input, ErrorKind::TakeUntil)))
-                },
-                Ok((i, o)) => Ok((i, o)),
-                Err(e) => Err(e)
+fn consume_until<'a, E>(arr: &'static str) -> impl FnMut(&'a str) -> IResult<&'a str, &'a str, E>
+where
+    E: ParseError<&'a str>,
+{
+    move |i: &'a str| match take_till1(|x: char| arr.contains(x)).parse(i) {
+        Err(Err::Incomplete(_)) => {
+            if i.input_len() != 0 {
+                rest(i)
+            } else {
+                Err(Err::Error(error_position!(i, ErrorKind::TakeUntil)))
             }
         }
-    );
-);
+        Ok((i, o)) => Ok((i, o)),
+        Err(e) => Err(e),
+    }
+}
 
 /// `recover_incomplete!(f)` will fail only if `f` fails due to something else
 /// than an incomplete stream.
-macro_rules! recover_incomplete (
-    ($i:expr, $submac:ident!( $($args:tt)* )) => (
-        {
-            use nom::lib::std::result::Result::*;
-            use nom::Err;
+fn recover_incomplete<'a, O, E, F>(mut p: F) -> impl FnMut(&'a str) -> IResult<&'a str, (), E>
+where
+    F: Parser<&'a str, O, E>,
+    E: ParseError<&'a str>,
+{
+    move |i: &'a str| match p.parse(i) {
+        Err(Err::Incomplete(_)) => Ok(("", ())),
+        Ok((rest, _)) => Ok((rest, ())),
+        Err(rest) => Err(rest),
+    }
+}
 
-            match $submac!($i, $($args)*) {
-                Err(Err::Incomplete(_)) =>  {
-                    Ok(("", ()))
-                },
-                Ok((rest, _)) => {
-                    Ok((rest, ()))
-                },
-                Err(rest) => Err(rest)
-            }
-        }
-    );
-);
+fn white_spaces<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, (), E>
+where
+    E: ParseError<&'a str>,
+{
+    recover_incomplete(take_while(|c| "\r\t    ".contains(c)))
+}
 
-named!(white_spaces<&str, ()>,
-       recover_incomplete!(take_while!(|c| "\r\t    ".contains(c)))
-);
-
-named!(blank<&str, ()>,
-       do_parse!(
-           white_spaces >>
-           opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
-           (())
-       )
-);
+fn blank<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, (), E>
+where
+    E: ParseError<&'a str>,
+{
+    move |i: &'a str| {
+        let (i, _) = white_spaces()
+            .and(opt(char('\n').and(white_spaces())))
+            .parse(i)?;
+        Ok((i, ()))
+    }
+}
 
 #[test]
 fn test_white_spaces() {
-    assert_eq!(white_spaces(","), Ok((",", ())));
-    assert_eq!(white_spaces("     ,"), Ok((",", ())));
-    assert_eq!(white_spaces("     "), Ok(("", ())));
+    assert_eq!(white_spaces::<()>().parse(","), Ok((",", ())));
+    assert_eq!(white_spaces::<()>().parse("     ,"), Ok((",", ())));
+    assert_eq!(white_spaces::<()>().parse("     "), Ok(("", ())));
 }
 
-named!(atom<&str, Atom>, do_parse!(
-    opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
-    r: alt!( map!(consume_until!(BARRIER_TOKENS), Atom::Word)
-           | do_parse!(char!(';')  >> (Atom::Punctuation(Mark::Semicolon)))
-           | do_parse!(char!(':')  >> (Atom::Punctuation(Mark::Colon)))
-           | do_parse!(char!('?')  >> (Atom::Punctuation(Mark::Question)))
-           | do_parse!(char!('!')  >> (Atom::Punctuation(Mark::Exclamation)))
-           | do_parse!(tag!("---") >> (Atom::Punctuation(Mark::LongDash)))
-           | do_parse!(char!('—')  >> (Atom::Punctuation(Mark::LongDash)))
-           | do_parse!(tag!("--")  >> (Atom::Punctuation(Mark::Dash)))
-           | do_parse!(char!('–')  >> (Atom::Punctuation(Mark::LongDash)))
-           | do_parse!(char!(',')  >> (Atom::Punctuation(Mark::Comma)))
-           | do_parse!(char!('-')  >> (Atom::Punctuation(Mark::Hyphen)))
-           | do_parse!(char!('…')  >> (Atom::Punctuation(Mark::SuspensionPoints)))
-           | do_parse!(char!('.')  >> some!(char!('.'))
-                                   >> (Atom::Punctuation(Mark::SuspensionPoints)))
-           | do_parse!(char!('.')  >> (Atom::Punctuation(Mark::Point)))
-           | do_parse!(char!('\'') >> (Atom::Punctuation(Mark::Apostrophe)))
-           | do_parse!(char!('’')  >> (Atom::Punctuation(Mark::Apostrophe)))
-           | do_parse!(char!('`')  >> lw: take_until!("`")
-                                   >> char!('`')
-                                   >> (Atom::Word(lw)))
-           )            >>
-    white_spaces >>
-    (r)
-));
+fn atom<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, Atom<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    move |i: &'a str| {
+        let (i, _) = opt(char('\n').and(white_spaces())).parse(i)?;
+
+        let (i, r) = alt((
+            consume_until(BARRIER_TOKENS).map(Atom::Word),
+            char(';').map(|_| Atom::Punctuation(Mark::Semicolon)),
+            char(':').map(|_| Atom::Punctuation(Mark::Colon)),
+            char('?').map(|_| Atom::Punctuation(Mark::Question)),
+            char('!').map(|_| Atom::Punctuation(Mark::Exclamation)),
+            tag("---").map(|_| Atom::Punctuation(Mark::LongDash)),
+            char('—').map(|_| Atom::Punctuation(Mark::LongDash)),
+            tag("--").map(|_| Atom::Punctuation(Mark::Dash)),
+            char('–').map(|_| Atom::Punctuation(Mark::LongDash)),
+            char(',').map(|_| Atom::Punctuation(Mark::Comma)),
+            char('-').map(|_| Atom::Punctuation(Mark::Hyphen)),
+            char('…').map(|_| Atom::Punctuation(Mark::SuspensionPoints)),
+            preceded(char('.'), some(char('.'))).map(|_| Atom::Punctuation(Mark::SuspensionPoints)),
+            char('.').map(|_| Atom::Punctuation(Mark::Point)),
+            char('\'').map(|_| Atom::Punctuation(Mark::Apostrophe)),
+            char('’').map(|_| Atom::Punctuation(Mark::Apostrophe)),
+            delimited(char('`'), take_until("`"), char('`')).map(Atom::Word),
+        ))
+        .parse(i)?;
+
+        let (i, _) = white_spaces().parse(i)?;
+
+        Ok((i, r))
+    }
+}
 
 #[test]
 fn test_atom() {
-    assert_eq!(atom(","), Ok(("", Atom::Punctuation(Mark::Comma))));
-    assert_eq!(atom(", "), Ok(("", Atom::Punctuation(Mark::Comma))));
     assert_eq!(
-        atom("......."),
+        atom::<()>().parse(","),
+        Ok(("", Atom::Punctuation(Mark::Comma)))
+    );
+    assert_eq!(
+        atom::<()>().parse(", "),
+        Ok(("", Atom::Punctuation(Mark::Comma)))
+    );
+    assert_eq!(
+        atom::<()>().parse("......."),
         Ok(("", Atom::Punctuation(Mark::SuspensionPoints)))
     );
-    assert_eq!(atom("’"), Ok(("", Atom::Punctuation(Mark::Apostrophe))));
-    assert_eq!(atom("`@test`"), Ok(("", Atom::Word("@test"))));
-    assert_eq!(atom("test"), Ok(("", Atom::Word("test"))));
+    assert_eq!(
+        atom::<()>().parse("’"),
+        Ok(("", Atom::Punctuation(Mark::Apostrophe)))
+    );
+    assert_eq!(atom::<()>().parse("`@test`"), Ok(("", Atom::Word("@test"))));
+    assert_eq!(atom::<()>().parse("test"), Ok(("", Atom::Word("test"))));
 }
 
-named_args!(format_rec(in_strong: bool, in_emph: bool, in_quote: bool)<&str, Format>,
-    alt!( map!(some!(atom), Format::Raw)
-        | cond_reduce!(!in_strong, do_parse!(
-            opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
-            char!('+') >>
-            white_spaces >>
-            st: some!(call!(format_rec, true, in_emph, in_quote)) >>
-            blank >>
-            char!('+') >>
-            white_spaces >>
-            (Format::StrongEmph(st))
-          ))
-        | cond_reduce!(!in_emph, do_parse!(
-            opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
-            char!('*') >>
-            white_spaces >>
-            st: some!(call!(format_rec, in_strong, true, in_quote)) >>
-            blank >>
-            char!('*') >>
-            white_spaces >>
-            (Format::Emph(st))
-          ))
-        | cond_reduce!(!in_quote, do_parse!(
-            opt!(do_parse!(char!('\n') >> white_spaces >> (()))) >>
-            alt!(char!('"') | char!('«')) >>
-            white_spaces >>
-            st: some!(call!(format_rec, in_strong, in_emph, true)) >>
-            white_spaces >>
-            alt!(char!('"') | char!('»')) >>
-            white_spaces >>
-            (Format::Quote(st))
-          ))
-    )
-);
+fn format_aux<'a, E>(
+    in_strong: bool,
+    in_emph: bool,
+    in_quote: bool,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Format<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    alt((
+        some(atom()).map(Format::Raw),
+        cond_reduce(!in_strong, move |i: &'a str| -> IResult<_, _, E> {
+            let (i, _) = opt(char('\n').and(white_spaces())).parse(i)?;
+            let (i, _) = char('+').parse(i)?;
+            let (i, _) = white_spaces().parse(i)?;
+            let (i, st) = some(format_aux(true, in_emph, in_quote)).parse(i)?;
+            let (i, _) = blank().parse(i)?;
+            let (i, _) = char('+').parse(i)?;
+            let (i, _) = white_spaces().parse(i)?;
 
-named!(format<&str, Format>, call!(format_rec, false, false, false));
+            Ok((i, Format::StrongEmph(st)))
+        }),
+        cond_reduce(!in_emph, move |i: &'a str| -> IResult<_, _, E> {
+            let (i, _) = opt(char('\n').and(white_spaces())).parse(i)?;
+            let (i, _) = char('*').parse(i)?;
+            let (i, _) = white_spaces().parse(i)?;
+            let (i, em) = some(format_aux(in_strong, true, in_quote)).parse(i)?;
+            let (i, _) = blank().parse(i)?;
+            let (i, _) = char('*').parse(i)?;
+            let (i, _) = white_spaces().parse(i)?;
+
+            Ok((i, Format::Emph(em)))
+        }),
+        cond_reduce(!in_quote, move |i: &'a str| -> IResult<_, _, E> {
+            let (i, _) = opt(char('\n').and(white_spaces())).parse(i)?;
+            let (i, _) = alt((char('"'), char('«'))).parse(i)?;
+            let (i, _) = white_spaces().parse(i)?;
+            let (i, em) = some(format_aux(in_strong, in_emph, in_quote)).parse(i)?;
+            let (i, _) = blank().parse(i)?;
+            let (i, _) = alt((char('"'), char('»'))).parse(i)?;
+            let (i, _) = white_spaces().parse(i)?;
+
+            Ok((i, Format::Quote(em)))
+        }),
+    ))
+}
+
+fn format<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, Format<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    format_aux(false, false, false)
+}
 
 #[test]
 fn test_format() {
     assert_eq!(
-        format("Hi stranger, how are you?"),
+        format::<()>().parse("Hi stranger, how are you?"),
         Ok((
             "",
             Format::Raw(vec![
@@ -212,7 +253,7 @@ fn test_format() {
     );
 
     assert_eq!(
-        format(
+        format::<()>().parse(
             r#"Hi stranger, how
 are you?"#
         ),
@@ -231,7 +272,7 @@ are you?"#
     );
 
     assert_eq!(
-        format(
+        format::<()>().parse(
             r#"Hi stranger, how
 
 are you?"#
@@ -248,7 +289,7 @@ are you?"#
     );
 
     assert_eq!(
-        format("+Hi stranger+, how are you?"),
+        format::<()>().parse("+Hi stranger+, how are you?"),
         Ok((
             ", how are you?",
             Format::StrongEmph(vec![Format::Raw(vec![
@@ -259,7 +300,7 @@ are you?"#
     );
 
     assert_eq!(
-        format("+Hi *stranger*+, how are you?"),
+        format::<()>().parse("+Hi *stranger*+, how are you?"),
         Ok((
             ", how are you?",
             Format::StrongEmph(vec![
@@ -269,40 +310,58 @@ are you?"#
         ))
     );
 
-    assert_eq!(format("+Hi *+ stranger*, how are you?").is_err(), true);
+    assert_eq!(
+        format::<()>()
+            .parse("+Hi *+ stranger*, how are you?")
+            .is_err(),
+        true
+    );
 }
 
-named_args!(reply(b: char, e: char)<&str, Reply>, do_parse!(
-    char!(b)  >>
-    call!(white_spaces) >>
-    before: some!(format) >>
-    x: call!(anychar) >>
-    r: alt!( cond_reduce!(x == e, do_parse!((None)))
-           | cond_reduce!(x == '|', do_parse!(
-               call!(white_spaces) >>
-               prep: some!(format) >>
-               char!('|') >>
-               call!(white_spaces) >>
-               after: opt!(some!(format)) >>
-               char!(e) >>
-               (Some((prep, after)))
-           ))
-    ) >>
-    call!(white_spaces) >>
-    (match r {
-        None => {
-            Reply::Simple(before)
-        },
-        Some((prep, after)) => {
-            Reply::WithSay(before, prep, after)
+fn reply<'a, E>(b: char, e: char) -> impl FnMut(&'a str) -> IResult<&'a str, Reply<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    move |i: &'a str| {
+        let (i, _) = char(b).parse(i)?;
+        let (i, _) = white_spaces().parse(i)?;
+
+        let (i, before) = some(format()).parse(i)?;
+
+        let (i, x) = anychar.parse(i)?;
+
+        let (i, r) = alt((
+            cond_reduce(x == e, move |i: &'a str| -> IResult<_, _, E> {
+                Ok((i, None))
+            }),
+            cond_reduce(x == '|', move |i: &'a str| -> IResult<_, _, E> {
+                let (i, prep) = delimited(
+                    white_spaces(),
+                    some(format()),
+                    char('|').and(white_spaces()),
+                )
+                .parse(i)?;
+                let (i, after) = opt(some(format())).parse(i)?;
+                let (i, _) = char(e).parse(i)?;
+
+                Ok((i, Some((prep, after))))
+            }),
+        ))
+        .parse(i)?;
+
+        let (i, _) = white_spaces().parse(i)?;
+
+        match r {
+            None => Ok((i, Reply::Simple(before))),
+            Some((prep, after)) => Ok((i, Reply::WithSay(before, prep, after))),
         }
-    })
-));
+    }
+}
 
 #[test]
 fn test_reply() {
     assert_eq!(
-        reply("[Hi stranger]", '[', ']'),
+        reply::<()>('[', ']').parse("[Hi stranger]"),
         Ok((
             "",
             Reply::Simple(vec![Format::Raw(vec![
@@ -313,7 +372,7 @@ fn test_reply() {
     );
 
     assert_eq!(
-        reply("[Hi stranger,| they salute.|]", '[', ']'),
+        reply::<()>('[', ']').parse("[Hi stranger,| they salute.|]"),
         Ok((
             "",
             Reply::WithSay(
@@ -333,6 +392,17 @@ fn test_reply() {
     );
 }
 
+fn reply_author<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, &'a str, E>
+where
+    E: ParseError<&'a str>,
+{
+    complete(delimited(
+        char('('),
+        alphanumeric1,
+        char(')').and(white_spaces()),
+    ))
+}
+
 // Because I have spent a fair amonut of time in a train trying to figure out
 // the best way to implement this parser, I consider it is probably a good idea
 // to explain why there is a call to `blank` for Dialogue and Thought, but not
@@ -340,38 +410,24 @@ fn test_reply() {
 // eating the whitespaces before him, so if we do add blank to Teller as well,
 // then this means two newlines are consumed when a Teller component follows a
 // Dialogue for instance.
-named!(component<&str, Component>, alt! (
-            do_parse!(
-              tel: some!(format) >>
-              (Component::Teller(tel)))
-         |  do_parse!(
-              blank >>
-              dial: call!(reply, '[' , ']') >>
-              by: opt!(complete!(do_parse!(
-                     char!('(') >>
-                     name: call!(alphanumeric1) >>
-                     char!(')') >>
-                     white_spaces >>
-                     (name)))) >>
-              (Component::Dialogue(dial, by)))
-         |  do_parse!(
-              blank >>
-              th: call!(reply, '<' , '>') >>
-              by: opt!(complete!(do_parse!(
-                     char!('(') >>
-                     name: call!(alphanumeric1) >>
-                     char!(')') >>
-                     white_spaces >>
-                     (name)))) >>
-              (Component::Thought(th, by)))
-         | map!(consume_until!("\n"), Component::IllFormed)
-         )
-);
+fn component<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, Component<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    alt((
+        some(format()).map(Component::Teller),
+        preceded(blank(), reply('[', ']').and(opt(reply_author())))
+            .map(|(dial, by)| Component::Dialogue(dial, by)),
+        preceded(blank(), reply('<', '>').and(opt(reply_author())))
+            .map(|(th, by)| Component::Thought(th, by)),
+        consume_until("\n").map(Component::IllFormed),
+    ))
+}
 
 #[test]
 fn test_component() {
     assert_eq!(
-        component("[Hi]"),
+        component::<()>().parse("[Hi]"),
         Ok((
             "",
             Component::Dialogue(
@@ -382,7 +438,7 @@ fn test_component() {
     );
 
     assert_eq!(
-        component("Hi stranger,\n*this* is me."),
+        component::<()>().parse("Hi stranger,\n*this* is me."),
         Ok((
             "",
             Component::Teller(vec![
@@ -402,7 +458,7 @@ fn test_component() {
     );
 
     assert_eq!(
-        component("Hi stranger, this is me."),
+        component::<()>().parse("Hi stranger, this is me."),
         Ok((
             "",
             Component::Teller(vec![Format::Raw(vec![
@@ -418,7 +474,7 @@ fn test_component() {
     );
 
     assert_eq!(
-        component("[Hi](alice)"),
+        component::<()>().parse("[Hi](alice)"),
         Ok((
             "",
             Component::Dialogue(
@@ -429,32 +485,37 @@ fn test_component() {
     );
 
     assert_eq!(
-        component("[Hi \ntest\n\n"),
+        component::<()>().parse("[Hi \ntest\n\n"),
         Ok(("\ntest\n\n", Component::IllFormed("[Hi ")))
     );
 }
 
-named!(empty_line<&str, ()>, do_parse!(
-       white_spaces >>
-       char!('\n')  >>
-       white_spaces >>
-       (())
-));
+fn empty_line<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, (), E>
+where
+    E: ParseError<&'a str>,
+{
+    move |i: &str| {
+        let (i, _) = white_spaces().parse(i)?;
+        let (i, _) = char('\n').parse(i)?;
+        white_spaces().parse(i)
+    }
+}
 
-named!(
-    paragraph<&str, Paragraph>,
-    do_parse!(
-        not!(peek!(one_of!("_="))) >>
-        p: some!(component) >>
-        many0!(complete!(empty_line)) >>
-        (Paragraph(p))
+fn paragraph<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, Paragraph<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    delimited(
+        not(peek(one_of("=_"))),
+        some(component()).map(Paragraph),
+        many0(complete(empty_line())),
     )
-);
+}
 
 #[test]
 fn test_paragraph() {
     assert_eq!(
-        paragraph("+Hi+"),
+        paragraph::<()>().parse("+Hi+"),
         Ok((
             "",
             Paragraph(vec![Component::Teller(vec![Format::StrongEmph(vec![
@@ -464,7 +525,7 @@ fn test_paragraph() {
     );
 
     assert_eq!(
-        paragraph("[Hi stranger, this is me.] Indeed.\n\n[Hi]"),
+        paragraph::<()>().parse("[Hi stranger, this is me.] Indeed.\n\n[Hi]"),
         Ok((
             "[Hi]",
             Paragraph(vec![
@@ -489,26 +550,37 @@ fn test_paragraph() {
     );
 }
 
-named_args!(
-    search_recovery_point_rec<'a>(acc: &mut Vec<&'a str>)<&'a str, ()>,
-    alt!(
-        map!(some!(empty_line), |_| ())
-      | do_parse!(
-          l: consume_until!("\n") >>
-          do_parse!(({ acc.push(l) })) >>
-          char!('\n') >>
-          call!(search_recovery_point_rec, acc) >>
-          (())
-      )
-    )
-);
+fn search_recovery_point_aux<'a, E>(acc: &mut Vec<&'a str>, i: &'a str) -> IResult<&'a str, (), E>
+where
+    E: ParseError<&'a str>,
+{
+    let mut i_out = i;
 
-fn search_recovery_point<'input>(
-    input: &'input str,
-) -> nom::IResult<&'input str, Vec<&'input str>> {
+    loop {
+        match some::<_, _, E, _>(empty_line()).parse(i_out) {
+            Ok((i, _)) => {
+                i_out = i;
+                break;
+            }
+            _ => {
+                let (i, l) = consume_until("\n").parse(i_out)?;
+                acc.push(l);
+                let (i, _) = char('\n').parse(i)?;
+                i_out = i;
+            }
+        }
+    }
+
+    Ok((i_out, ()))
+}
+
+fn search_recovery_point<'a, E>(i: &'a str) -> IResult<&'a str, Vec<&'a str>, E>
+where
+    E: ParseError<&'a str>,
+{
     let mut acc = vec![];
-    match search_recovery_point_rec(input, &mut acc) {
-        Ok((input, _)) => Ok((input, acc)),
+    match search_recovery_point_aux::<E>(&mut acc, i) {
+        Ok((i, _)) => Ok((i, acc)),
         Err(_) => Ok(("", acc)),
     }
 }
@@ -516,7 +588,7 @@ fn search_recovery_point<'input>(
 #[test]
 fn test_recovery() {
     assert_eq!(
-        search_recovery_point(
+        search_recovery_point::<()>.parse(
             r#"We need
 to try.
 
@@ -526,40 +598,47 @@ Recover!"#
     );
 }
 
-named!(
-    section<&str, Section>, do_parse!(
-    res: alt!(
-        complete!(do_parse!(
-            some!(char!('_')) >>
-            cls: opt!(
-                    do_parse!(
-                        cls: call!(alphanumeric1) >>
-                        some!(char!('_')) >>
-                        (cls)
-                    )
-            ) >>
-            some!(empty_line) >>
-            sec: some!(paragraph) >>
-            some!(char!('_')) >>
-            (Section::Aside(cls, sec))
-        ))
-      | do_parse!(
-          opt!(do_parse!(some!(char!('=')) >> some!(empty_line) >> (()))) >>
-          r: map!(some!(paragraph), Section::Story) >>
-          (r)
-        )
-      | map_opt!(search_recovery_point, |x: Vec<_>| if !x.is_empty() { Some(Section::IllFormed(x)) } else { None } )
-    ) >>
-    many0!(complete!(empty_line)) >>
-    (res)
-));
+fn section<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, Section<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    delimited(
+        success(()),
+        alt((
+            complete(
+                preceded(
+                    some(char('_')),
+                    opt(delimited(success(()), alphanumeric1, some(char('_')))),
+                )
+                .and(delimited(
+                    some(empty_line()),
+                    some(paragraph()),
+                    some(char('_')),
+                ))
+                .map(|(cls, sec)| Section::Aside(cls, sec)),
+            ),
+            preceded(
+                opt(some(char('=')).and(some(empty_line()))),
+                some(paragraph()).map(Section::Story),
+            ),
+            map_opt(search_recovery_point, |x: Vec<_>| {
+                if !x.is_empty() {
+                    Some(Section::IllFormed(x))
+                } else {
+                    None
+                }
+            }),
+        )),
+        many0(complete(empty_line())),
+    )
+}
 
 #[test]
 fn test_section() {
-    assert!(section("").is_err());
+    assert!(section::<()>().parse("").is_err());
 
     assert_eq!(
-        section("+\nHi  \n +"),
+        section::<()>().parse("+\nHi  \n +"),
         Ok((
             "",
             Section::Story(vec![Paragraph(vec![Component::Teller(vec![
@@ -569,7 +648,7 @@ fn test_section() {
     );
 
     assert_eq!(
-        section("+Hi+"),
+        section::<()>().parse("+Hi+"),
         Ok((
             "",
             Section::Story(vec![Paragraph(vec![Component::Teller(vec![
@@ -579,7 +658,7 @@ fn test_section() {
     );
 
     assert_eq!(
-        section(
+        section::<()>().parse(
             r#"_____letter____
 Dear friend.
 
@@ -608,7 +687,7 @@ _______________"#
     );
 
     assert_eq!(
-        section(
+        section::<()>().parse(
             r#"_____letter____
 Dear friend.
 
@@ -621,7 +700,7 @@ I love you."#
     );
 
     assert_eq!(
-        section(r#"Dear friend."#),
+        section::<()>().parse(r#"Dear friend."#),
         Ok((
             "",
             Section::Story(vec![Paragraph(vec![Component::Teller(vec![Format::Raw(
@@ -635,24 +714,25 @@ I love you."#
     );
 }
 
-named!(
-    document<&str, Document>, do_parse!(
-      opt!(complete!(blank)) >>
-      many0!(complete!(empty_line)) >>
-      x: many0!(section) >>
-      (Document(x))
+fn document<'a, E>() -> impl FnMut(&'a str) -> IResult<&'a str, Document<'a>, E>
+where
+    E: ParseError<&'a str>,
+{
+    preceded(
+        opt(complete(blank())).and(many0(complete(empty_line()))),
+        many0(section()).map(Document),
     )
-);
+}
 
 #[test]
 fn test_empty_document() {
-    assert_eq!(document(""), Ok(("", Document(vec![]))));
+    assert_eq!(document::<()>().parse(""), Ok(("", Document(vec![]))));
 }
 
 #[test]
 fn test_document_with_leading_ws() {
     assert_eq!(
-        document("   \n  \n She opened the letter."),
+        document::<()>().parse("   \n  \n She opened the letter."),
         Ok((
             "",
             Document(vec![Section::Story(vec![Paragraph(vec![
@@ -671,7 +751,7 @@ fn test_document_with_leading_ws() {
 #[test]
 fn test_incomplete_aside() {
     assert_eq!(
-        document("________________"),
+        document::<()>().parse("________________"),
         Ok((
             "",
             Document(vec![Section::IllFormed(vec!["________________"])])
@@ -682,7 +762,7 @@ fn test_incomplete_aside() {
 #[test]
 fn test_document() {
     assert_eq!(
-        document(
+        document::<()>().parse(
             r#"She opened the letter.
 
 ======
@@ -712,7 +792,7 @@ She cry."#
         ))
     );
     assert_eq!(
-        document(
+        document::<()>().parse(
             r#"She opened the letter.
 
 ======She cry."#
@@ -735,7 +815,7 @@ She cry."#
     );
 
     assert_eq!(
-        document(
+        document::<()>().parse(
             r#"She opened the letter, and read it.
 
 _____letter____
@@ -788,7 +868,7 @@ pub enum Error<'input> {
 }
 
 pub fn parse(input: &str) -> Result<Document, Error> {
-    match document(input) {
+    match document::<()>().parse(input) {
         Ok(("", res)) => Ok(res),
         Ok((rest, res)) => Err(Error::IncompleteParsing(res, rest)),
         _ => Err(Error::ParsingError),
