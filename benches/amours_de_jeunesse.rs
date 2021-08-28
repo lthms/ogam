@@ -4,13 +4,13 @@
 
 #[macro_use]
 extern crate criterion;
-extern crate ogmarkup;
+extern crate ogam;
 
 use criterion::black_box;
 use criterion::Criterion;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("parse", |b| b.iter(|| ogmarkup::parse(black_box(INPUT))));
+    c.bench_function("parse", |b| b.iter(|| ogam::parse(black_box(INPUT))));
 }
 
 criterion_group!(benches, criterion_benchmark);

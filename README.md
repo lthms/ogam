@@ -1,18 +1,24 @@
-# `ogmarkup`
+# `ogam`
 
-## What is `ogmarkup`?
+## What is `ogam`?
 
 Typographic rules can be trick to enforce in a consistent manner in a
 document. In French, typographic rules for *dialogues* are arguably
-worst. `ogmarkup` is part of the so-called ogma-project. It is a minimal
-domain-specific markup language, intended to free fiction writers from the pain
-to enforce typographic rules within their productions manually.
+worst.  `ogam` is a domain-specific markup language, intended to free
+fiction writers from the pain to enforce typographic rules within
+their productions manually.
+
+Additionally, `ogam` allows to annotate one’s text with metadata.  For
+instance, it is possible to indicate what character is speaking a
+given line of dialogue.  This paves the road towards being able to
+discoverability, *e.g.*, finding the list of scenes wherein a given
+character speaks.
 
 ## The Language
 
 ### Formatting
 
-```ogmarkup
+```ogam
 This is a regular sentence.
 ```
 
@@ -24,7 +30,7 @@ This is a regular sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 *This is a sentence with emphasize.*</p>
 ```
 
@@ -36,7 +42,7 @@ This is a regular sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 +This is a sentence with strong emphasize.+</p>
 ```
 
@@ -48,7 +54,7 @@ This is a regular sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 This +is+ a *sentence with +multiple emphasizes+*.
 ```
 
@@ -61,7 +67,7 @@ This +is+ a *sentence with +multiple emphasizes+*.
 
 ------------------------
 
-```ogmarkup
+```ogam
 "This is a +quote+."
 ```
 
@@ -73,7 +79,7 @@ This +is+ a *sentence with +multiple emphasizes+*.
 
 ------------------------
 
-```ogmarkup
+```ogam
 This +is an "incorrect+" sentence.
 ```
 
@@ -83,7 +89,7 @@ This +is an "incorrect+" sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 This +is an "incorrect+"
 sentence.
 ```
@@ -94,7 +100,7 @@ sentence.
 
 ### Dialogues
 
-```ogmarkup
+```ogam
 [Hi,| she says.|](Clara)
 ```
 
@@ -106,7 +112,7 @@ sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 [Hi,| she says.| How are you?](Clara)
 ```
 
@@ -118,7 +124,7 @@ sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 [Hi,| she says.| How are you?](Clara) [I'm fine, thanks.]
 ```
 
@@ -130,7 +136,7 @@ sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 [Hi,| she says.| How are you?](Clara) She was smiling. [I'm fine, thanks.]
 ```
 
@@ -142,7 +148,7 @@ sentence.
 
 ------------------------
 
-```ogmarkup
+```ogam
 It was a hot day. [Hi!| he said.](Aaron)
 His friends smiled.
 ```
@@ -156,7 +162,7 @@ His friends smiled.
 ### Paragraphs
 
 
-```ogmarkup
+```ogam
 This is a first paragraph.
 
 This is a second paragraph.
@@ -170,7 +176,7 @@ This is a second paragraph.
 
 ------------------------
 
-```ogmarkup
+```ogam
 [Ceci est une première ligne de dialogue.]
 
 [Ceci est une autre ligne de dialogue.]
@@ -184,8 +190,10 @@ This is a second paragraph.
 
 ## The Implementations
 
-A first implementation of an `ogmarkup` parser and compiler has been
-written in Haskell, and [has been published on hackage
-(MIT)](https://hackage.haskell.org/package/ogmarkup). This first
-project has been deprecated in favor of a rewriting in Rust yet to be
-released on `crates.io`
+A first implementation of an `ogam` —`ogmarkup` at this time– parser
+and compiler has been written in Haskell, and [has been published on
+hackage (MIT)](https://hackage.haskell.org/package/ogmarkup).
+
+This first project has been deprecated in favor of this rewriting in
+Rust.  Contrary to its predecessor, `ogam` is released under the terms
+of the MPL 2.0.
