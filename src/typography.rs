@@ -147,7 +147,7 @@ impl Typography for English {
     fn output(&self, mark: &Mark) -> &'static str {
         match mark {
             Mark::Semicolon => ";",
-            Mark::Colon => ",",
+            Mark::Colon => ":",
             Mark::OpenQuote => "“",
             Mark::CloseQuote => "”",
             Mark::Question => "?",
