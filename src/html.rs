@@ -2,18 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use generator::Renderer;
+use crate::generator::Output;
 use maud::{html, Markup, PreEscaped};
-use typography::Space;
+use crate::typography::Space;
 
-pub struct Html;
-
-impl<'input> Renderer<'input, Markup> for Html {
+impl Output for Markup {
     fn append(&self, m1: Markup, m2: Markup) -> Markup {
         html!((m1)(m2))
     }
 
-    fn empty(&self) -> Markup {
+    fn empty() -> Markup {
         html!()
     }
 
