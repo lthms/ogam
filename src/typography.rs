@@ -47,6 +47,12 @@ pub trait Typography {
     fn output(&self, mark: &Mark) -> &'static str;
     fn open_dialog(&self, before: PreviousDialogue) -> Option<&'static Atom<'static>>;
     fn close_dialog(&self, last: bool) -> Option<&'static Atom<'static>>;
+    fn enclosed_say(
+        &self,
+    ) -> (
+        Option<&'static Atom<'static>>,
+        Option<&'static Atom<'static>>,
+    );
 
     fn before_atom<'a>(&self, atom: &Atom<'a>) -> Space {
         match atom {
@@ -119,6 +125,15 @@ impl Typography for French {
             Some(&Atom::Punctuation(Mark::CloseQuote))
         }
     }
+
+    fn enclosed_say(
+        &self,
+    ) -> (
+        Option<&'static Atom<'static>>,
+        Option<&'static Atom<'static>>,
+    ) {
+        (None, None)
+    }
 }
 
 pub const FRENCH: French = French;
@@ -172,6 +187,18 @@ impl Typography for English {
 
     fn close_dialog(&self, _after: bool) -> Option<&'static Atom<'static>> {
         Some(&Atom::Punctuation(Mark::CloseQuote))
+    }
+
+    fn enclosed_say(
+        &self,
+    ) -> (
+        Option<&'static Atom<'static>>,
+        Option<&'static Atom<'static>>,
+    ) {
+        (
+            Some(&Atom::Punctuation(Mark::CloseQuote)),
+            Some(&Atom::Punctuation(Mark::OpenQuote)),
+        )
     }
 }
 

@@ -117,10 +117,10 @@ sentence.
 ```
 
 ```html
-<p><span class="dialogue by-Clara">“<span class="reply">Hi,</span> she says. <span class="reply">How are you?</span>”</span></p>
+<p><span class="dialogue by-Clara">“<span class="reply">Hi,</span>” she says. “<span class="reply">How are you?</span>”</span></p>
 ```
 
-> <p><span class="dialogue by-Clara">“<span class="reply">Hi,</span> she says. <span class="reply">How are you?</span>”</span></p>
+> <p><span class="dialogue by-Clara">“<span class="reply">Hi,</span>” she says. “<span class="reply">How are you?</span>”</span></p>
 
 ------------------------
 
@@ -129,10 +129,10 @@ sentence.
 ```
 
 ```html
-<p><span class="dialogue by-Clara">“<span class="reply">Hi,</span> she says. <span class="reply">How are you?</span>”</span></p><p><span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
+<p><span class="dialogue by-Clara">“<span class="reply">Hi,</span>” she says. “<span class="reply">How are you?</span>”</span></p><p><span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
 ```
 
-> <p><span class="dialogue by-Clara">“<span class="reply">Hi,</span> she says. <span class="reply">How are you?</span>”</span></p><p><span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
+> <p><span class="dialogue by-Clara">“<span class="reply">Hi,</span>” she says. “<span class="reply">How are you?</span>”</span></p><p><span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
 
 ------------------------
 
@@ -141,10 +141,10 @@ sentence.
 ```
 
 ```html
-<p><span class="dialogue by-Clara">“<span class="reply">Hi,</span> she says. <span class="reply">How are you?</span>”</span> She was smiling. <span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
+<p><span class="dialogue by-Clara">“<span class="reply">Hi,</span>” she says. “<span class="reply">How are you?</span>”</span> She was smiling. <span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
 ```
 
-> <p><span class="dialogue by-Clara">“<span class="reply">Hi,</span> she says. <span class="reply">How are you?</span>”</span> She was smiling. <span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
+> <p><span class="dialogue by-Clara">“<span class="reply">Hi,</span>” she says. “<span class="reply">How are you?</span>”</span> She was smiling. <span class="dialogue">“<span class="reply">I’m fine, thanks.</span>”</span></p>
 
 ------------------------
 

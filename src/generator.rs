@@ -186,9 +186,12 @@ impl<'ast, 'input: 'ast> Reply<'input> {
                 insert.render(typo, out, mem);
             }
             Reply::WithSay(atoms1, insert, Some(atoms2)) => {
+                let (oi, ci) = typo.enclosed_say();
                 open.map(|x| x.render(typo, out, mem));
                 out.reply_template(|out| atoms1.render(typo, out, mem), author);
+                oi.map(|x| x.render(typo, out, mem));
                 insert.render(typo, out, mem);
+                ci.map(|x| x.render(typo, out, mem));
                 out.reply_template(|out| atoms2.render(typo, out, mem), author);
                 close.map(|x| x.render(typo, out, mem));
             }
