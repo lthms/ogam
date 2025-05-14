@@ -30,7 +30,7 @@ use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded};
 use nom::{Err, IResult, InputLength, Parser};
 
-const BARRIER_TOKENS: &str = "!?.\"«»`+*[]<>|_'’,;-—: \n\r\t   ";
+const BARRIER_TOKENS: &str = "!?.\"“”«»`+*[]<>|_'’,;-—: \n\r\t   ";
 
 /// Call the parser if the condition is met, fails otherwise.
 fn cond_reduce<I, O, E, F>(c: bool, p: F) -> impl FnMut(I) -> IResult<I, O, E>
@@ -203,11 +203,11 @@ where
         }),
         cond_reduce(!in_quote, move |i: &'a str| -> IResult<_, _, E> {
             let (i, _) = opt(char('\n').and(white_spaces())).parse(i)?;
-            let (i, _) = alt((char('"'), char('«'))).parse(i)?;
+            let (i, _) = alt((char('"'), char('«'), char('“'))).parse(i)?;
             let (i, _) = white_spaces().parse(i)?;
             let (i, em) = some(format_aux(in_strong, in_emph, in_quote)).parse(i)?;
             let (i, _) = blank().parse(i)?;
-            let (i, _) = alt((char('"'), char('»'))).parse(i)?;
+            let (i, _) = alt((char('"'), char('»'), char('”'))).parse(i)?;
             let (i, _) = white_spaces().parse(i)?;
 
             Ok((i, Format::Quote(em)))
