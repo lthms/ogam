@@ -1,6 +1,6 @@
 [package]
 name = "ogam"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["Thomas Letan <lthms@soap.coffee>"]
 license-file = "LICENSE"
 keywords = ["parser", "markup"]
