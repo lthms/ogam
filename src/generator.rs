@@ -172,6 +172,7 @@ impl<'ast, 'input: 'ast> Reply<'input> {
         open: Option<&'static Atom<'static>>,
         close: Option<&'static Atom<'static>>,
         mem: &mut Memory<'ast, 'input>,
+        is_dialogue: bool,
     ) -> () {
         match self {
             Reply::Simple(atoms) => {
@@ -186,7 +187,11 @@ impl<'ast, 'input: 'ast> Reply<'input> {
                 insert.render(typo, out, mem);
             }
             Reply::WithSay(atoms1, insert, Some(atoms2)) => {
-                let (oi, ci) = typo.enclosed_say();
+                let (oi, ci) = if is_dialogue {
+                    typo.enclosed_say()
+                } else {
+                    (None, None)
+                };
                 open.map(|x| x.render(typo, out, mem));
                 out.reply_template(|out| atoms1.render(typo, out, mem), author);
                 oi.map(|x| x.render(typo, out, mem));
@@ -222,7 +227,7 @@ impl<'ast, 'input: 'ast> Component<'input> {
                 out.illformed_inline_template(|out| out.render_illformed(err))
             }
             Component::Thought(reply, cls) => out.thought_template(
-                |out| reply.render_reply(cls, typo, out, None, None, mem),
+                |out| reply.render_reply(cls, typo, out, None, None, mem, false),
                 cls,
             ),
             Component::Dialogue(reply, cls) => {
@@ -230,7 +235,10 @@ impl<'ast, 'input: 'ast> Component<'input> {
                 let o = typo.open_dialog(was_dialogue);
                 let e = typo.close_dialog(will_be_dialog);
 
-                out.dialogue_template(|out| reply.render_reply(cls, typo, out, o, e, mem), cls);
+                out.dialogue_template(
+                    |out| reply.render_reply(cls, typo, out, o, e, mem, true),
+                    cls,
+                );
 
                 if will_be_dialog && !is_last {
                     mem.reset_atom();
